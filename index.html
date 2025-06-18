@@ -2,97 +2,155 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Graficar Desigualdad</title>
+  <title>Graficador de Desigualdades</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    #graph { width: 100%; height: 500px; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 30px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: #fff;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #1a73e8;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      background-color: #1a73e8;
+      color: white;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #155ab6;
+    }
+
+    #graph {
+      margin-top: 30px;
+      height: 500px;
+    }
+
+    .note {
+      font-size: 14px;
+      color: #666;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
 
-  <h2>Graficador de desigualdades lineales</h2>
-  <p>Ejemplo: <strong>y &lt;= 2*x + 3</strong></p>
-
-  <input type="text" id="inequality" placeholder="Escribe una desigualdad..." size="30" />
-  <button onclick="graficar()">Graficar</button>
-
-  <div id="graph"></div>
+  <div class="container">
+    <h1>Graficador de Desigualdades</h1>
+    <input type="text" id="inequality" placeholder="Ej. y <= 2*x + 3" />
+    <button onclick="graficar()">Graficar</button>
+    <p class="note">Solo se aceptan expresiones explícitas en <strong>y</strong> (como: <em>y &lt;= 2*x + 3</em>)</p>
+    <div id="graph"></div>
+  </div>
 
   <script>
     function graficar() {
-      const input = document.getElementById("inequality").value;
-      const match = input.match(/y\s*([<>=]+)\s*(.+)/);
+      const input = document.getElementById("inequality").value.trim();
+      const match = input.match(/^y\s*([<>=]=?)\s*(.+)$/);
 
       if (!match) {
-        alert("Desigualdad no válida. Usa formato: y <= 2*x + 3");
+        alert("Por favor ingresa una desigualdad válida, por ejemplo: y <= 2*x + 3");
         return;
       }
 
-      const operator = match[1].trim();
-      const expr = match[2].trim();
+      const operador = match[1];
+      const expresion = match[2];
 
-      const x = [];
-      const y = [];
-      const xMin = -10, xMax = 10, step = 0.2;
+      const xMin = -10, xMax = 10, yMin = -10, yMax = 10, step = 0.25;
+      const x = [], y = [];
 
-      for (let i = xMin; i <= xMax; i += step) {
-        x.push(i);
+      // Para la línea frontera
+      for (let xi = xMin; xi <= xMax; xi += step) {
         try {
-          y.push(eval(expr.replace(/x/g, i)));
+          x.push(xi);
+          y.push(eval(expresion.replace(/x/g, `(${xi})`)));
         } catch (e) {
           alert("Error en la expresión.");
           return;
         }
       }
 
-      const fillY = [];
-      const fillX = [];
-
+      // Región de solución
+      const regionX = [], regionY = [];
       for (let xi = xMin; xi <= xMax; xi += step) {
-        for (let yi = -10; yi <= 10; yi += step) {
-          let yEval = eval(expr.replace(/x/g, xi));
-          let condition = false;
+        for (let yi = yMin; yi <= yMax; yi += step) {
+          try {
+            const yEval = eval(expresion.replace(/x/g, `(${xi})`));
+            let cumple = false;
 
-          switch (operator) {
-            case "<": condition = yi < yEval; break;
-            case "<=": condition = yi <= yEval; break;
-            case ">": condition = yi > yEval; break;
-            case ">=": condition = yi >= yEval; break;
-            case "==": condition = yi == yEval; break;
-          }
+            switch (operador) {
+              case "<":  cumple = yi < yEval; break;
+              case "<=": cumple = yi <= yEval; break;
+              case ">":  cumple = yi > yEval; break;
+              case ">=": cumple = yi >= yEval; break;
+              case "==": cumple = yi == yEval; break;
+            }
 
-          if (condition) {
-            fillX.push(xi);
-            fillY.push(yi);
+            if (cumple) {
+              regionX.push(xi);
+              regionY.push(yi);
+            }
+          } catch (e) {
+            console.error("Error evaluando expresión:", e);
           }
         }
       }
 
-      const traceLine = {
+      const traceLinea = {
         x: x,
         y: y,
         mode: 'lines',
         name: 'Línea frontera',
-        line: { color: 'blue' }
+        line: { color: '#e3afe3', width: 2 }
       };
 
       const traceRegion = {
-        x: fillX,
-        y: fillY,
+        x: regionX,
+        y: regionY,
         mode: 'markers',
         name: 'Región solución',
-        marker: { color: 'rgba(0, 200, 0, 0.3)', size: 2 },
+        marker: { color: 'rgba(26, 115, 232, 0.2)', size: 3 },
         type: 'scatter'
       };
 
       const layout = {
-        title: 'Gráfico de Desigualdad',
-        xaxis: { range: [xMin, xMax] },
-        yaxis: { range: [-10, 10] }
+        title: 'Gráfico de la Desigualdad',
+        xaxis: { range: [xMin, xMax], zeroline: true, title: 'x' },
+        yaxis: { range: [yMin, yMax], zeroline: true, title: 'y' },
+        showlegend: true
       };
 
-      Plotly.newPlot('graph', [traceRegion, traceLine], layout);
+      Plotly.newPlot('graph', [traceRegion, traceLinea], layout);
     }
   </script>
 
