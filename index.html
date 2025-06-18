@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Graficador de Desigualdades</title>
+  <title>Graficador de Desigualdades con Dos Variables</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f4f6f8;
+      background-color: #f5c1eb;
       margin: 0;
       padding: 30px;
       color: #333;
@@ -16,7 +16,7 @@
     .container {
       max-width: 700px;
       margin: auto;
-      background: #fff;
+      background: white;
       padding: 25px;
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -24,135 +24,127 @@
 
     h1 {
       text-align: center;
-      margin-bottom: 20px;
-      color: #1a73e8;
+      color: #f5c1eb;
     }
 
     input[type="text"] {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       font-size: 16px;
-      margin-bottom: 15px;
+      margin-top: 10px;
       border: 1px solid #ccc;
-      border-radius: 5px;
+      border-radius: 6px;
     }
 
     button {
-      background-color: #1a73e8;
+      background-color: #f5c1eb;
       color: white;
-      padding: 10px 20px;
-      font-size: 16px;
       border: none;
+      padding: 10px 20px;
+      margin-top: 15px;
       border-radius: 5px;
+      font-size: 16px;
       cursor: pointer;
     }
 
     button:hover {
-      background-color: #155ab6;
+      background-color: #0c59c5;
+    }
+
+    .note {
+      font-size: 14px;
+      margin-top: 10px;
+      color: #666;
     }
 
     #graph {
       margin-top: 30px;
       height: 500px;
     }
-
-    .note {
-      font-size: 14px;
-      color: #666;
-      margin-top: 10px;
-    }
   </style>
 </head>
 <body>
-
   <div class="container">
-    <h1>Graficador de Desigualdades</h1>
-    <input type="text" id="inequality" placeholder="Ej. y <= 2*x + 3" />
+    <h1>Graficador de Desigualdades con Dos Variables</h1>
+    <input type="text" id="inequality" placeholder="Ej: 2x + 3y <= 6" />
     <button onclick="graficar()">Graficar</button>
-    <p class="note">Solo se aceptan expresiones explícitas en <strong>y</strong> (como: <em>y &lt;= 2*x + 3</em>)</p>
+    <p class="note">Formato válido: Ax + By ≤ C (usa <=, >=, &lt;, &gt;, ==)</p>
     <div id="graph"></div>
   </div>
 
   <script>
     function graficar() {
       const input = document.getElementById("inequality").value.trim();
-      const match = input.match(/^y\s*([<>=]=?)\s*(.+)$/);
+      const regex = /^(-?\d*\.?\d*)x\s*([+-]\s*\d*\.?\d*)y\s*(<=|>=|<|>|==)\s*(-?\d+\.?\d*)$/;
 
+      const match = input.replace(/\s+/g, '').match(regex);
       if (!match) {
-        alert("Por favor ingresa una desigualdad válida, por ejemplo: y <= 2*x + 3");
+        alert("Formato no válido. Usa algo como: 2x + 3y <= 6");
         return;
       }
 
-      const operador = match[1];
-      const expresion = match[2];
+      const A = parseFloat(match[1] || "1");
+      const By = match[2].replace(/\s+/g, '');
+      const B = parseFloat(By.startsWith('+') ? By.slice(1) : By);
+      const op = match[3];
+      const C = parseFloat(match[4]);
 
       const xMin = -10, xMax = 10, yMin = -10, yMax = 10, step = 0.25;
-      const x = [], y = [];
 
-      // Para la línea frontera
-      for (let xi = xMin; xi <= xMax; xi += step) {
-        try {
-          x.push(xi);
-          y.push(eval(expresion.replace(/x/g, `(${xi})`)));
-        } catch (e) {
-          alert("Error en la expresión.");
-          return;
+      const regionX = [], regionY = [], fronteraX = [], fronteraY = [];
+
+      for (let x = xMin; x <= xMax; x += step) {
+        const y = (C - A * x) / B;
+        if (isFinite(y)) {
+          fronteraX.push(x);
+          fronteraY.push(y);
         }
       }
 
-      // Región de solución
-      const regionX = [], regionY = [];
-      for (let xi = xMin; xi <= xMax; xi += step) {
-        for (let yi = yMin; yi <= yMax; yi += step) {
-          try {
-            const yEval = eval(expresion.replace(/x/g, `(${xi})`));
-            let cumple = false;
-
-            switch (operador) {
-              case "<":  cumple = yi < yEval; break;
-              case "<=": cumple = yi <= yEval; break;
-              case ">":  cumple = yi > yEval; break;
-              case ">=": cumple = yi >= yEval; break;
-              case "==": cumple = yi == yEval; break;
-            }
-
-            if (cumple) {
-              regionX.push(xi);
-              regionY.push(yi);
-            }
-          } catch (e) {
-            console.error("Error evaluando expresión:", e);
+      for (let x = xMin; x <= xMax; x += step) {
+        for (let y = yMin; y <= yMax; y += step) {
+          const valor = A * x + B * y;
+          let cumple = false;
+          switch (op) {
+            case "<": cumple = valor < C; break;
+            case "<=": cumple = valor <= C; break;
+            case ">": cumple = valor > C; break;
+            case ">=": cumple = valor >= C; break;
+            case "==": cumple = valor === C; break;
+          }
+          if (cumple) {
+            regionX.push(x);
+            regionY.push(y);
           }
         }
       }
 
-      const traceLinea = {
-        x: x,
-        y: y,
-        mode: 'lines',
-        name: 'Línea frontera',
-        line: { color: '#e3afe3', width: 2 }
-      };
-
-      const traceRegion = {
+      const region = {
         x: regionX,
         y: regionY,
         mode: 'markers',
         name: 'Región solución',
-        marker: { color: 'rgba(26, 115, 232, 0.2)', size: 3 },
+        marker: { color: 'rgba(76, 175, 80, 0.3)', size: 3 },
         type: 'scatter'
+      };
+
+      const linea = {
+        x: fronteraX,
+        y: fronteraY,
+        mode: 'lines',
+        name: 'Línea frontera',
+        line: { color: '#f5c1eb', width: 2 }
       };
 
       const layout = {
         title: 'Gráfico de la Desigualdad',
-        xaxis: { range: [xMin, xMax], zeroline: true, title: 'x' },
-        yaxis: { range: [yMin, yMax], zeroline: true, title: 'y' },
+        xaxis: { range: [xMin, xMax], title: 'x' },
+        yaxis: { range: [yMin, yMax], title: 'y' },
         showlegend: true
       };
 
-      Plotly.newPlot('graph', [traceRegion, traceLinea], layout);
+      Plotly.newPlot('graph', [region, linea], layout);
     }
   </script>
-
 </body>
 </html>
