@@ -1,32 +1,32 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Graficador de Desigualdades 3D</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #fbeaff;
+      background-color: #ffe6f0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
+      padding: 30px;
     }
-    h2 {
-      color: #d48fce;
+    h1 {
+      color: #cc66a1;
+      margin-bottom: 10px;
     }
     input, button {
       padding: 10px;
       font-size: 16px;
       margin: 5px;
-      border: 1px solid #ccc;
       border-radius: 10px;
+      border: 1px solid #ccc;
       width: 300px;
     }
     button {
-      background-color: #f4c2f4;
-      color: #333;
+      background-color: #f9b6d2;
       cursor: pointer;
     }
     #plot {
@@ -37,24 +37,28 @@
   </style>
 </head>
 <body>
-  <h2>Graficador de Desigualdades con Tres Variables</h2>
+
+  <h1>Graficador de Desigualdades con 3 Variables</h1>
   <input type="text" id="ineq1" placeholder="Ej: x + y + z <= 10">
-  <input type="text" id="ineq2" placeholder="Ej: x - y + z <= 8">
-  <input type="text" id="ineq3" placeholder="Ej: 2x + y - z <= 15">
+  <input type="text" id="ineq2" placeholder="Ej: x + y >= 2">
+  <input type="text" id="ineq3" placeholder="Ej: z >= 0">
   <button onclick="graficar()">Graficar</button>
+
   <div id="plot"></div>
 
   <script>
-    function parseInequality(ineq) {
-      const match = ineq.match(/([+-]?\s*\d*x)?\s*([+-]?\s*\d*y)?\s*([+-]?\s*\d*z)?\s*(<=|>=|<|>|==)\s*(-?\d+)/i);
+    function parseInequality(input) {
+      const match = input.match(/([+-]?\s*\d*x)?\s*([+-]?\s*\d*y)?\s*([+-]?\s*\d*z)?\s*(<=|>=|<|>|==)\s*(-?\d+)/i);
       if (!match) return null;
-      const parseTerm = (term, variable) => {
+
+      function parseTerm(term, variable) {
         if (!term) return 0;
-        term = term.replace(variable, '').trim();
+        term = term.replace(variable, '').replace(/\s+/g, '');
         if (term === '' || term === '+') return 1;
         if (term === '-') return -1;
         return parseFloat(term);
-      };
+      }
+
       return {
         A: parseTerm(match[1], 'x'),
         B: parseTerm(match[2], 'y'),
@@ -64,14 +68,14 @@
       };
     }
 
-    function cumpleDesigualdad({ A, B, C, op, D }, x, y, z) {
+    function cumple({A, B, C, op, D}, x, y, z) {
       const val = A * x + B * y + C * z;
-      switch (op) {
-        case "<=": return val <= D;
-        case ">=": return val >= D;
-        case "<":  return val < D;
-        case ">":  return val > D;
-        case "==": return val === D;
+      switch(op) {
+        case '<=': return val <= D;
+        case '>=': return val >= D;
+        case '<':  return val <  D;
+        case '>':  return val >  D;
+        case '==': return val === D;
         default: return false;
       }
     }
@@ -80,7 +84,7 @@
       const ineqs = [ineq1.value, ineq2.value, ineq3.value].map(parseInequality);
 
       if (ineqs.includes(null)) {
-        alert("Asegúrate de que todas las desigualdades estén en formato válido.");
+        alert("Asegúrate de usar el formato correcto: Ax + By + Cz <= D");
         return;
       }
 
@@ -89,7 +93,7 @@
       for (let x = -10; x <= 10; x++) {
         for (let y = -10; y <= 10; y++) {
           for (let z = -10; z <= 10; z++) {
-            if (ineqs.every(ineq => cumpleDesigualdad(ineq, x, y, z))) {
+            if (ineqs.every(ineq => cumple(ineq, x, y, z))) {
               puntos.x.push(x);
               puntos.y.push(y);
               puntos.z.push(z);
@@ -106,13 +110,14 @@
         type: 'scatter3d',
         marker: {
           size: 3,
-          color: '#b0e0e6', // azul pastel
-          opacity: 0.6
+          color: '#c7d8ff', // pastel azul/lila
+          opacity: 0.7
         }
       };
 
       const layout = {
-        margin: { l: 0, r: 0, b: 0, t: 0 },
+        title: 'Región solución de desigualdades 3D',
+        margin: { l: 0, r: 0, b: 0, t: 30 },
         scene: {
           xaxis: { title: 'x' },
           yaxis: { title: 'y' },
@@ -123,5 +128,7 @@
       Plotly.newPlot('plot', [trace], layout);
     }
   </script>
+
 </body>
 </html>
+
