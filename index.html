@@ -19,9 +19,10 @@
     input, button {
       padding: 10px;
       font-size: 16px;
-      margin-top: 10px;
+      margin: 5px;
       border: 1px solid #ccc;
       border-radius: 10px;
+      width: 300px;
     }
     button {
       background-color: #f4c2f4;
@@ -37,20 +38,16 @@
 </head>
 <body>
   <h2>Graficador de Desigualdades con Tres Variables</h2>
-  <input type="text" id="ineqInput" placeholder="Ej: x + y + z <= 10">
+  <input type="text" id="ineq1" placeholder="Ej: x + y + z <= 10">
+  <input type="text" id="ineq2" placeholder="Ej: x - y + z <= 8">
+  <input type="text" id="ineq3" placeholder="Ej: 2x + y - z <= 15">
   <button onclick="graficar()">Graficar</button>
   <div id="plot"></div>
 
   <script>
-    function graficar() {
-      const input = document.getElementById("ineqInput").value;
-      const match = input.match(/([+-]?\s*\d*x)?\s*([+-]?\s*\d*y)?\s*([+-]?\s*\d*z)?\s*(<=|>=|<|>|==)\s*(-?\d+)/i);
-      if (!match) {
-        alert("Formato inválido. Use: Ax + By + Cz <= D");
-        return;
-      }
-
-      // Extraer coeficientes
+    function parseInequality(ineq) {
+      const match = ineq.match(/([+-]?\s*\d*x)?\s*([+-]?\s*\d*y)?\s*([+-]?\s*\d*z)?\s*(<=|>=|<|>|==)\s*(-?\d+)/i);
+      if (!match) return null;
       const parseTerm = (term, variable) => {
         if (!term) return 0;
         term = term.replace(variable, '').trim();
@@ -58,26 +55,41 @@
         if (term === '-') return -1;
         return parseFloat(term);
       };
+      return {
+        A: parseTerm(match[1], 'x'),
+        B: parseTerm(match[2], 'y'),
+        C: parseTerm(match[3], 'z'),
+        op: match[4],
+        D: parseFloat(match[5])
+      };
+    }
 
-      const A = parseTerm(match[1], 'x');
-      const B = parseTerm(match[2], 'y');
-      const C = parseTerm(match[3], 'z');
-      const op = match[4];
-      const D = parseFloat(match[5]);
+    function cumpleDesigualdad({ A, B, C, op, D }, x, y, z) {
+      const val = A * x + B * y + C * z;
+      switch (op) {
+        case "<=": return val <= D;
+        case ">=": return val >= D;
+        case "<":  return val < D;
+        case ">":  return val > D;
+        case "==": return val === D;
+        default: return false;
+      }
+    }
 
-      // Crear puntos (x, y, z) que cumplen la desigualdad
+    function graficar() {
+      const ineqs = [ineq1.value, ineq2.value, ineq3.value].map(parseInequality);
+
+      if (ineqs.includes(null)) {
+        alert("Asegúrate de que todas las desigualdades estén en formato válido.");
+        return;
+      }
+
       const puntos = { x: [], y: [], z: [] };
-      for (let x = -10; x <= 10; x += 1) {
-        for (let y = -10; y <= 10; y += 1) {
-          for (let z = -10; z <= 10; z += 1) {
-            const val = A * x + B * y + C * z;
-            if (
-              (op === '<=' && val <= D) ||
-              (op === '>=' && val >= D) ||
-              (op === '<'  && val <  D) ||
-              (op === '>'  && val >  D) ||
-              (op === '==' && val === D)
-            ) {
+
+      for (let x = -10; x <= 10; x++) {
+        for (let y = -10; y <= 10; y++) {
+          for (let z = -10; z <= 10; z++) {
+            if (ineqs.every(ineq => cumpleDesigualdad(ineq, x, y, z))) {
               puntos.x.push(x);
               puntos.y.push(y);
               puntos.z.push(z);
@@ -94,7 +106,7 @@
         type: 'scatter3d',
         marker: {
           size: 3,
-          color: '#fbb1d0', // rosa pastel
+          color: '#b0e0e6', // azul pastel
           opacity: 0.6
         }
       };
@@ -113,4 +125,3 @@
   </script>
 </body>
 </html>
-
