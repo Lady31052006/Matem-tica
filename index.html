@@ -2,167 +2,100 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Graficador de Desigualdades con Dos Variables</title>
+  <title>Región solución desigualdades 3 variables</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #fce4ec;
-      margin: 0;
-      padding: 30px;
-      color: #333;
-    }
-
-    .container {
-      max-width: 700px;
-      margin: auto;
-      background: white;
-      padding: 25px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-      text-align: center;
-      color: #ec407a;
-    }
-
-    textarea {
-      width: 100%;
-      height: 100px;
-      padding: 12px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      resize: vertical;
-    }
-
-    button {
-      background-color: #ec407a;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      margin-top: 15px;
-      border-radius: 5px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #d81b60;
-    }
-
-    .note {
-      font-size: 14px;
-      margin-top: 10px;
-      color: #666;
-    }
-
-    #graph {
-      margin-top: 30px;
-      height: 500px;
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Graficador de Desigualdades con Dos Variables</h1>
-    <textarea id="inequalities" placeholder="Ej:\n2x + 3y <= 6\nx - y >= 1\n"></textarea>
-    <button onclick="graficar()">Graficar</button>
-    <p class="note">Ingresa cada desigualdad en una nueva línea. Ejemplo: 2x + 3y <= 6</p>
-    <div id="graph"></div>
-  </div>
 
-  <script>
-    function graficar() {
-      const input = document.getElementById("inequalities").value.trim().split("\n");
-      const xMin = -10, xMax = 10, yMin = -10, yMax = 10, step = 0.25;
+<div id="plot3d" style="width: 800px; height: 700px;"></div>
 
-      const gridX = [], gridY = [], validPoints = [];
-      for (let x = xMin; x <= xMax; x += step) {
-        for (let y = yMin; y <= yMax; y += step) {
-          gridX.push(x);
-          gridY.push(y);
-        }
-      }
+<script>
+  // Creamos mallas para x y y
+  let x = [];
+  let y = [];
+  let step = 0.5;
 
-      validPoints.push([...Array(gridX.length).keys()]);
+  for(let i=0; i<=10; i+=step) {
+    x.push(i);
+    y.push(i);
+  }
 
-      const fronteras = [];
-
-      input.forEach(expr => {
-        const match = expr.replace(/\s+/g, '').match(/^(-?\d*\.?\d*)x([+-]\d*\.?\d*)y(<=|>=|<|>|==)(-?\d+\.?\d*)$/);
-        if (!match) {
-          alert("Formato no válido en: " + expr);
-          return;
-        }
-
-        const A = parseFloat(match[1] || "1");
-        const B = parseFloat(match[2].startsWith('+') ? match[2].slice(1) : match[2]);
-        const op = match[3];
-        const C = parseFloat(match[4]);
-
-        // Frontera
-        const fx = [], fy = [];
-        for (let x = xMin; x <= xMax; x += step) {
-          const y = (C - A * x) / B;
-          if (isFinite(y)) {
-            fx.push(x);
-            fy.push(y);
-          }
-        }
-        fronteras.push({x: fx, y: fy});
-
-        // Región válida
-        const current = [];
-        for (let i = 0; i < gridX.length; i++) {
-          const val = A * gridX[i] + B * gridY[i];
-          let cumple = false;
-          switch (op) {
-            case '<': cumple = val < C; break;
-            case '<=': cumple = val <= C; break;
-            case '>': cumple = val > C; break;
-            case '>=': cumple = val >= C; break;
-            case '==': cumple = val == C; break;
-          }
-          if (cumple) current.push(i);
-        }
-        validPoints.push(current);
-      });
-
-      // Intersección de puntos válidos
-      const intersection = validPoints.reduce((acc, arr) => acc.filter(i => arr.includes(i)));
-      const regionX = intersection.map(i => gridX[i]);
-      const regionY = intersection.map(i => gridY[i]);
-
-      const region = {
-        x: regionX,
-        y: regionY,
-        mode: 'markers',
-        name: 'Región solución',
-        marker: { color: 'rgba(236, 64, 122, 0.3)', size: 3 },
-        type: 'scatter'
-      };
-
-      const traces = fronteras.map((f, i) => ({
-        x: f.x,
-        y: f.y,
-        mode: 'lines',
-        name: 'Frontera ' + (i + 1),
-        line: { color: '#ec407a', width: 2 }
-      }));
-
-      traces.push(region);
-
-      const layout = {
-        title: 'Gráfico de Desigualdades',
-        xaxis: { range: [xMin, xMax], title: 'x' },
-        yaxis: { range: [yMin, yMax], title: 'y' },
-        showlegend: true
-      };
-
-      Plotly.newPlot('graph', traces, layout);
+  // Generar matrices X, Y
+  let X = [];
+  let Y = [];
+  for(let i=0; i<y.length; i++) {
+    for(let j=0; j<x.length; j++) {
+      X.push(x[j]);
+      Y.push(y[i]);
     }
-  </script>
+  }
+
+  // Funciones de superficie: z = f(x,y)
+  // Ejemplo de desigualdades:
+  // 1) x + y + z <= 10  => z <= 10 - x - y
+  // 2) x >= 2
+  // 3) y >= 1
+
+  // Para la superficie límite de z:
+  let Z = X.map( (val, idx) => 10 - X[idx] - Y[idx] );
+
+  // Crear la superficie z = 10 - x - y (plano límite)
+  let surface1 = {
+    type: 'surface',
+    x: x,
+    y: y,
+    z: [],
+    opacity: 0.7,
+    colorscale: 'Viridis',
+    name: 'x + y + z = 10',
+    showscale: false
+  };
+
+  // Completar matriz Z para superficie (matriz 2D)
+  for(let i=0; i<y.length; i++) {
+    let row = [];
+    for(let j=0; j<x.length; j++) {
+      row.push(10 - x[j] - y[i]);
+    }
+    surface1.z.push(row);
+  }
+
+  // Plano x = 2 (paralela al eje yz)
+  let planeX = {
+    type: 'mesh3d',
+    x: [2, 2, 2, 2],
+    y: [0, 0, 10, 10],
+    z: [0, 10, 10, 0],
+    opacity: 0.5,
+    color: 'red',
+    name: 'x = 2'
+  };
+
+  // Plano y = 1 (paralela al eje xz)
+  let planeY = {
+    type: 'mesh3d',
+    x: [0, 0, 10, 10],
+    y: [1, 1, 1, 1],
+    z: [0, 10, 10, 0],
+    opacity: 0.5,
+    color: 'green',
+    name: 'y = 1'
+  };
+
+  // Layout y configuración del gráfico
+  let layout = {
+    title: 'Región solución desigualdades 3 variables',
+    scene: {
+      xaxis: {title: 'x', range: [0,10]},
+      yaxis: {title: 'y', range: [0,10]},
+      zaxis: {title: 'z', range: [0,10]}
+    },
+    legend: {x:0, y:1}
+  };
+
+  // Graficar
+  Plotly.newPlot('plot3d', [surface1, planeX, planeY], layout);
+</script>
+
 </body>
 </html>
