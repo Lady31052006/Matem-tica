@@ -2,120 +2,129 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Desigualdades con 3 variables (corte 2D)</title>
-
-  <!-- Plotly para el gráfico -->
+  <title>Graficador de Desigualdades con 3 Variables</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-  <!-- Math.js para evaluar expresiones matemáticas con seguridad -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/13.0.0/math.min.js"></script>
-
   <style>
-    body{font-family:Arial, sans-serif; margin:20px; max-width:960px}
-    label{display:block; margin-top:10px}
-    input[type="text"]{width:100%; padding:6px}
-    #grafico{width:100%; height:600px; margin-top:25px}
-    .pastel {background:#fce6ff;padding:4px 8px;border-radius:6px}
+    body {
+      background-color: #ffe6f0;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    h2 {
+      color: #d63384;
+      margin-bottom: 20px;
+    }
+    input[type="text"], input[type="number"] {
+      width: 60%;
+      padding: 10px;
+      margin: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+    button {
+      background-color: #f69ac0;
+      border: none;
+      color: black;
+      padding: 12px 30px;
+      font-size: 16px;
+      border-radius: 15px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #grafico {
+      margin-top: 40px;
+      width: 100%;
+      height: 600px;
+    }
   </style>
 </head>
 <body>
 
-<h2>Graficar sistema de 3 desigualdades con corte <span class="pastel">z = k</span></h2>
+  <h2>Graficador de Desigualdades con 3 Variables</h2>
 
-<label>Desigualdad 1 (ej. <code>x + y + z &lt;= 12</code>):</label>
-<input id="ineq1" type="text" value="x + y + z <= 12">
+  <input id="ineq1" type="text" placeholder="Ej: x + y + z <= 10" value="2*x + 3*y <= 7"><br>
+  <input id="ineq2" type="text" placeholder="Ej: x >= 0" value="x >= 1"><br>
+  <input id="ineq3" type="text" placeholder="Ej: y >= 0" value="y >= 0"><br>
 
-<label>Desigualdad 2 (ej. <code>2*x - y + z &lt; 9</code>):</label>
-<input id="ineq2" type="text" value="2*x - y + z < 9">
+  <label for="zval">Valor fijo para z: </label>
+  <input id="zval" type="number" value="0" step="0.5"><br>
 
-<label>Desigualdad 3 (ej. <code>x >= 0</code>):</label>
-<input id="ineq3" type="text" value="x >= 0">
+  <button onclick="graficar()">Graficar</button>
 
-<label>
-  Valor de&nbsp;<code>z</code> para la rebanada (k):
-  <input id="zval" type="range" min="-10" max="10" value="0" step="0.5" oninput="znum.value=this.value">
-  <output id="znum">0</output>
-</label>
+  <div id="grafico"></div>
 
-<button onclick="graficar()">Graficar región</button>
-
-<div id="grafico"></div>
-
-<script>
-/* ====================== utilidades ====================== */
-function crearFuncion(inequation){
-  // Reemplazamos ≤ / ≥ que el usuario pueda copiar-pegar
-  inequation = inequation.replace(/≤/g,"<=").replace(/≥/g,">=");
-  // Separar operador
-  const opMatch = inequation.match(/(<=|>=|<|>)/);
-  if(!opMatch){throw "No se encontró operador en '"+inequation+"'"}
-  const [op] = opMatch;
-  const [left,right] = inequation.split(op).map(t=>t.trim());
-  // Compilar con math.js
-  const fLeft  = math.compile(left);
-  const fRight = math.compile(right);
-  // Devolver función booleana
-  return (x,y,z) => {
-    const scope = {x,y,z};
-    const L = fLeft.evaluate(scope);
-    const R = fRight.evaluate(scope);
-    switch(op){
-      case "<=": return L <= R;
-      case ">=": return L >= R;
-      case "<" : return L  < R;
-      case ">" : return L  > R;
+  <script>
+    function crearFuncion(inequation){
+      inequation = inequation.replace(/≤/g,"<=").replace(/≥/g,">=");
+      const opMatch = inequation.match(/(<=|>=|<|>)/);
+      if(!opMatch) throw "No se encontró operador en '"+inequation+"'";
+      const [op] = opMatch;
+      const [left, right] = inequation.split(op).map(t => t.trim());
+      const fLeft = math.compile(left);
+      const fRight = math.compile(right);
+      return (x,y,z) => {
+        const scope = {x,y,z};
+        const L = fLeft.evaluate(scope);
+        const R = fRight.evaluate(scope);
+        switch(op){
+          case "<=": return L <= R;
+          case ">=": return L >= R;
+          case "<" : return L <  R;
+          case ">" : return L >  R;
+        }
+      };
     }
-  };
-}
 
-function pastelRGBA(alpha){
-  // paleta suave lila-rosada
-  return `rgba(255, 203, 239, ${alpha})`;
-}
+    function graficar(){
+      const z = parseFloat(document.getElementById("zval").value);
+      const ineqs = [
+        document.getElementById("ineq1").value,
+        document.getElementById("ineq2").value,
+        document.getElementById("ineq3").value
+      ].map(crearFuncion);
 
-/* ===================== gráfico ======================== */
-function graficar(){
-  const ineqs = [ineq1.value, ineq2.value, ineq3.value].map(crearFuncion);
-  const z = parseFloat(zval.value);
+      const XMIN=-10, XMAX=10, YMIN=-10, YMAX=10, PASO=0.25;
+      const xs=[], ys=[], Z=[];
+      for(let x=XMIN;x<=XMAX;x+=PASO) xs.push(x);
+      for(let y=YMIN;y<=YMAX;y+=PASO) ys.push(y);
 
-  // Rango de x e y a mostrar
-  const XMIN=-10, XMAX=10, YMIN=-10, YMAX=10, PASO=0.25;
-  const xs = [], ys = [];
-  for(let x=XMIN;x<=XMAX;x+=PASO){ xs.push(x) }
-  for(let y=YMIN;y<=YMAX;y+=PASO){ ys.push(y) }
+      for(let i=0;i<ys.length;i++){
+        const fila = [];
+        for(let j=0;j<xs.length;j++){
+          const x = xs[j], y = ys[i];
+          const cumple = ineqs.every(fn => fn(x,y,z));
+          fila.push(cumple ? 1 : NaN);
+        }
+        Z.push(fila);
+      }
 
-  // Calculamos matriz 0/1
-  const Z = [];
-  for(let i=0;i<ys.length;i++){
-    const fila=[];
-    for(let j=0;j<xs.length;j++){
-      const x=xs[j], y=ys[i];
-      const cumple = ineqs.every(fn=>fn(x,y,z));
-      fila.push(cumple?1:NaN); // NaN = transparente
+      const data = [{
+        x: xs,
+        y: ys,
+        z: Z,
+        type: "heatmap",
+        colorscale: [[0, "rgba(0,0,0,0)"], [1, "rgba(255, 153, 204, 0.6)"]],
+        showscale: false,
+        hoverinfo: "x+y"
+      }];
+
+      const layout = {
+        title: `Región factible en el plano XY (z = ${z})`,
+        xaxis: { title: "x" },
+        yaxis: { title: "y", scaleanchor: "x" },
+        margin: { t: 50 }
+      };
+
+      Plotly.newPlot("grafico", data, layout, {responsive: true});
     }
-    Z.push(fila);
-  }
+  </script>
 
-  const data = [{
-    x: xs, y: ys, z: Z,
-    type: 'heatmap',
-    colorscale:[ [0,pastelRGBA(0)], [1,pastelRGBA(0.6)] ],
-    showscale:false,
-    hovertemplate:"x=%{x:.2f}<br>y=%{y:.2f}<extra></extra>"
-  }];
-
-  const layout = {
-    title:`Región factible con z = ${z}`,
-    xaxis:{title:"x"},
-    yaxis:{title:"y", scaleanchor:"x"},
-    margin:{t:50}
-  };
-
-  Plotly.newPlot('grafico', data, layout, {responsive:true});
-}
-</script>
 </body>
 </html>
+
 
 
 
