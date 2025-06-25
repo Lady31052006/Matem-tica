@@ -2,63 +2,57 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Graficador de Desigualdades 3D</title>
+  <title>Desigualdades 3 variables en 2D</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
+      background: #ffeef8;
       font-family: 'Segoe UI', sans-serif;
-      background-color: #ffe6f0;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 30px;
     }
-    h1 {
+    h2 {
       color: #cc66a1;
-      margin-bottom: 10px;
     }
     input, button {
+      margin: 5px;
       padding: 10px;
       font-size: 16px;
-      margin: 5px;
       border-radius: 10px;
       border: 1px solid #ccc;
-      width: 300px;
+      width: 280px;
     }
     button {
-      background-color: #f9b6d2;
+      background-color: #f7b7da;
       cursor: pointer;
     }
     #plot {
-      width: 90vw;
-      height: 80vh;
+      width: 600px;
+      height: 600px;
       margin-top: 20px;
     }
   </style>
 </head>
 <body>
-
-  <h1>Graficador de Desigualdades con 3 Variables</h1>
-  <input type="text" id="ineq1" placeholder="Ej: x + y + z <= 10">
-  <input type="text" id="ineq2" placeholder="Ej: x + y >= 2">
-  <input type="text" id="ineq3" placeholder="Ej: z >= 0">
+  <h2>Graficador 2D de Desigualdades con 3 Variables</h2>
+  <input type="text" id="ineq" placeholder="Ej: x + y + z <= 10">
+  <input type="number" id="zval" placeholder="Valor para z (ej: 0)" />
   <button onclick="graficar()">Graficar</button>
-
   <div id="plot"></div>
 
   <script>
     function parseInequality(input) {
       const match = input.match(/([+-]?\s*\d*x)?\s*([+-]?\s*\d*y)?\s*([+-]?\s*\d*z)?\s*(<=|>=|<|>|==)\s*(-?\d+)/i);
       if (!match) return null;
-
-      function parseTerm(term, variable) {
+      const parseTerm = (term, varName) => {
         if (!term) return 0;
-        term = term.replace(variable, '').replace(/\s+/g, '');
+        term = term.replace(varName, '').replace(/\s+/g, '');
         if (term === '' || term === '+') return 1;
         if (term === '-') return -1;
         return parseFloat(term);
-      }
-
+      };
       return {
         A: parseTerm(match[1], 'x'),
         B: parseTerm(match[2], 'y'),
@@ -68,36 +62,33 @@
       };
     }
 
-    function cumple({A, B, C, op, D}, x, y, z) {
+    function cumple2D({A, B, C, op, D}, x, y, z) {
       const val = A * x + B * y + C * z;
-      switch(op) {
-        case '<=': return val <= D;
-        case '>=': return val >= D;
-        case '<':  return val <  D;
-        case '>':  return val >  D;
-        case '==': return val === D;
+      switch (op) {
+        case "<=": return val <= D;
+        case ">=": return val >= D;
+        case "<":  return val <  D;
+        case ">":  return val >  D;
+        case "==": return val === D;
         default: return false;
       }
     }
 
     function graficar() {
-      const ineqs = [ineq1.value, ineq2.value, ineq3.value].map(parseInequality);
-
-      if (ineqs.includes(null)) {
-        alert("Asegúrate de usar el formato correcto: Ax + By + Cz <= D");
+      const input = document.getElementById("ineq").value;
+      const zval = parseFloat(document.getElementById("zval").value);
+      const ineq = parseInequality(input);
+      if (!ineq || isNaN(zval)) {
+        alert("Escribe la desigualdad correctamente y el valor de z.");
         return;
       }
 
-      const puntos = { x: [], y: [], z: [] };
-
-      for (let x = -10; x <= 10; x++) {
-        for (let y = -10; y <= 10; y++) {
-          for (let z = -10; z <= 10; z++) {
-            if (ineqs.every(ineq => cumple(ineq, x, y, z))) {
-              puntos.x.push(x);
-              puntos.y.push(y);
-              puntos.z.push(z);
-            }
+      const puntos = { x: [], y: [] };
+      for (let x = -20; x <= 20; x += 0.5) {
+        for (let y = -20; y <= 20; y += 0.5) {
+          if (cumple2D(ineq, x, y, zval)) {
+            puntos.x.push(x);
+            puntos.y.push(y);
           }
         }
       }
@@ -105,30 +96,25 @@
       const trace = {
         x: puntos.x,
         y: puntos.y,
-        z: puntos.z,
         mode: 'markers',
-        type: 'scatter3d',
+        type: 'scatter',
         marker: {
-          size: 3,
-          color: '#c7d8ff', // pastel azul/lila
-          opacity: 0.7
+          color: '#f5a3d1',
+          size: 4,
+          opacity: 0.5
         }
       };
 
       const layout = {
-        title: 'Región solución de desigualdades 3D',
-        margin: { l: 0, r: 0, b: 0, t: 30 },
-        scene: {
-          xaxis: { title: 'x' },
-          yaxis: { title: 'y' },
-          zaxis: { title: 'z' }
-        }
+        title: `Solución 2D para z = ${zval}`,
+        xaxis: { title: 'x' },
+        yaxis: { title: 'y' }
       };
 
       Plotly.newPlot('plot', [trace], layout);
     }
   </script>
-
 </body>
 </html>
+
 
