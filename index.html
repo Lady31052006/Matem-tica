@@ -2,119 +2,120 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Desigualdades 3 variables en 2D</title>
+  <title>Desigualdades con 3 variables (corte 2D)</title>
+
+  <!-- Plotly para el gráfico -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- Math.js para evaluar expresiones matemáticas con seguridad -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/13.0.0/math.min.js"></script>
+
   <style>
-    body {
-      background: #ffeef8;
-      font-family: 'Segoe UI', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 30px;
-    }
-    h2 {
-      color: #cc66a1;
-    }
-    input, button {
-      margin: 5px;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      width: 280px;
-    }
-    button {
-      background-color: #f7b7da;
-      cursor: pointer;
-    }
-    #plot {
-      width: 600px;
-      height: 600px;
-      margin-top: 20px;
-    }
+    body{font-family:Arial, sans-serif; margin:20px; max-width:960px}
+    label{display:block; margin-top:10px}
+    input[type="text"]{width:100%; padding:6px}
+    #grafico{width:100%; height:600px; margin-top:25px}
+    .pastel {background:#fce6ff;padding:4px 8px;border-radius:6px}
   </style>
 </head>
 <body>
-  <h2>Graficador 2D de Desigualdades con 3 Variables</h2>
-  <input type="text" id="ineq" placeholder="Ej: x + y + z <= 10">
-  <input type="number" id="zval" placeholder="Valor para z (ej: 0)" />
-  <button onclick="graficar()">Graficar</button>
-  <div id="plot"></div>
 
-  <script>
-    function parseInequality(input) {
-      const match = input.match(/([+-]?\s*\d*x)?\s*([+-]?\s*\d*y)?\s*([+-]?\s*\d*z)?\s*(<=|>=|<|>|==)\s*(-?\d+)/i);
-      if (!match) return null;
-      const parseTerm = (term, varName) => {
-        if (!term) return 0;
-        term = term.replace(varName, '').replace(/\s+/g, '');
-        if (term === '' || term === '+') return 1;
-        if (term === '-') return -1;
-        return parseFloat(term);
-      };
-      return {
-        A: parseTerm(match[1], 'x'),
-        B: parseTerm(match[2], 'y'),
-        C: parseTerm(match[3], 'z'),
-        op: match[4],
-        D: parseFloat(match[5])
-      };
+<h2>Graficar sistema de 3 desigualdades con corte <span class="pastel">z = k</span></h2>
+
+<label>Desigualdad 1 (ej. <code>x + y + z &lt;= 12</code>):</label>
+<input id="ineq1" type="text" value="x + y + z <= 12">
+
+<label>Desigualdad 2 (ej. <code>2*x - y + z &lt; 9</code>):</label>
+<input id="ineq2" type="text" value="2*x - y + z < 9">
+
+<label>Desigualdad 3 (ej. <code>x >= 0</code>):</label>
+<input id="ineq3" type="text" value="x >= 0">
+
+<label>
+  Valor de&nbsp;<code>z</code> para la rebanada (k):
+  <input id="zval" type="range" min="-10" max="10" value="0" step="0.5" oninput="znum.value=this.value">
+  <output id="znum">0</output>
+</label>
+
+<button onclick="graficar()">Graficar región</button>
+
+<div id="grafico"></div>
+
+<script>
+/* ====================== utilidades ====================== */
+function crearFuncion(inequation){
+  // Reemplazamos ≤ / ≥ que el usuario pueda copiar-pegar
+  inequation = inequation.replace(/≤/g,"<=").replace(/≥/g,">=");
+  // Separar operador
+  const opMatch = inequation.match(/(<=|>=|<|>)/);
+  if(!opMatch){throw "No se encontró operador en '"+inequation+"'"}
+  const [op] = opMatch;
+  const [left,right] = inequation.split(op).map(t=>t.trim());
+  // Compilar con math.js
+  const fLeft  = math.compile(left);
+  const fRight = math.compile(right);
+  // Devolver función booleana
+  return (x,y,z) => {
+    const scope = {x,y,z};
+    const L = fLeft.evaluate(scope);
+    const R = fRight.evaluate(scope);
+    switch(op){
+      case "<=": return L <= R;
+      case ">=": return L >= R;
+      case "<" : return L  < R;
+      case ">" : return L  > R;
     }
+  };
+}
 
-    function cumple2D({A, B, C, op, D}, x, y, z) {
-      const val = A * x + B * y + C * z;
-      switch (op) {
-        case "<=": return val <= D;
-        case ">=": return val >= D;
-        case "<":  return val <  D;
-        case ">":  return val >  D;
-        case "==": return val === D;
-        default: return false;
-      }
+function pastelRGBA(alpha){
+  // paleta suave lila-rosada
+  return `rgba(255, 203, 239, ${alpha})`;
+}
+
+/* ===================== gráfico ======================== */
+function graficar(){
+  const ineqs = [ineq1.value, ineq2.value, ineq3.value].map(crearFuncion);
+  const z = parseFloat(zval.value);
+
+  // Rango de x e y a mostrar
+  const XMIN=-10, XMAX=10, YMIN=-10, YMAX=10, PASO=0.25;
+  const xs = [], ys = [];
+  for(let x=XMIN;x<=XMAX;x+=PASO){ xs.push(x) }
+  for(let y=YMIN;y<=YMAX;y+=PASO){ ys.push(y) }
+
+  // Calculamos matriz 0/1
+  const Z = [];
+  for(let i=0;i<ys.length;i++){
+    const fila=[];
+    for(let j=0;j<xs.length;j++){
+      const x=xs[j], y=ys[i];
+      const cumple = ineqs.every(fn=>fn(x,y,z));
+      fila.push(cumple?1:NaN); // NaN = transparente
     }
+    Z.push(fila);
+  }
 
-    function graficar() {
-      const input = document.getElementById("ineq").value;
-      const zval = parseFloat(document.getElementById("zval").value);
-      const ineq = parseInequality(input);
-      if (!ineq || isNaN(zval)) {
-        alert("Escribe la desigualdad correctamente y el valor de z.");
-        return;
-      }
+  const data = [{
+    x: xs, y: ys, z: Z,
+    type: 'heatmap',
+    colorscale:[ [0,pastelRGBA(0)], [1,pastelRGBA(0.6)] ],
+    showscale:false,
+    hovertemplate:"x=%{x:.2f}<br>y=%{y:.2f}<extra></extra>"
+  }];
 
-      const puntos = { x: [], y: [] };
-      for (let x = -20; x <= 20; x += 0.5) {
-        for (let y = -20; y <= 20; y += 0.5) {
-          if (cumple2D(ineq, x, y, zval)) {
-            puntos.x.push(x);
-            puntos.y.push(y);
-          }
-        }
-      }
+  const layout = {
+    title:`Región factible con z = ${z}`,
+    xaxis:{title:"x"},
+    yaxis:{title:"y", scaleanchor:"x"},
+    margin:{t:50}
+  };
 
-      const trace = {
-        x: puntos.x,
-        y: puntos.y,
-        mode: 'markers',
-        type: 'scatter',
-        marker: {
-          color: '#f5a3d1',
-          size: 4,
-          opacity: 0.5
-        }
-      };
-
-      const layout = {
-        title: `Solución 2D para z = ${zval}`,
-        xaxis: { title: 'x' },
-        yaxis: { title: 'y' }
-      };
-
-      Plotly.newPlot('plot', [trace], layout);
-    }
-  </script>
+  Plotly.newPlot('grafico', data, layout, {responsive:true});
+}
+</script>
 </body>
 </html>
+
 
 
