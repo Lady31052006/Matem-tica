@@ -1,71 +1,166 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Calculadora Simplex (solo HTML)</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background-color: #f9fafb;
-        }
-        h2 {
-            color: #0f172a;
-        }
-        label {
-            margin-top: 10px;
-            display: block;
-            font-weight: bold;
-        }
-        input[type="text"], select, textarea {
-            width: 100%;
-            padding: 8px;
-            margin-top: 4px;
-            box-sizing: border-box;
-            font-size: 1em;
-        }
-        textarea {
-            height: 100px;
-        }
-        .resultado {
-            margin-top: 20px;
-            background-color: #e2e8f0;
-            padding: 15px;
-            border-radius: 6px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Simplex con Gráfica</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/javascript-lp-solver/0.4.24/solver.min.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    input, textarea, select, button {
+      margin: 5px 0; padding: 8px; width: 100%;
+    }
+    #grafo { width: 100%; height: 500px; }
+    .box { margin-bottom: 15px; }
+  </style>
 </head>
 <body>
 
-    <h2>Formulario para Problemas Simplex</h2>
+  <h2>🔷 Método Simplex con Gráfica</h2>
 
-    <form>
-        <label for="tipo">Tipo de optimización:</label>
-        <select id="tipo">
-            <option value="max">Máximo</option>
-            <option value="min">Mínimo</option>
-        </select>
+  <div class="box">
+    <label>Tipo:</label>
+    <select id="tipo">
+      <option value="max">Maximizar</option>
+      <option value="min">Minimizar</option>
+    </select>
+  </div>
 
-        <label for="objetivo">Función objetivo Z =</label>
-        <input type="text" id="objetivo" placeholder="Ej: 3x + 4y">
+  <div class="box">
+    <label>Z =</label>
+    <input type="text" id="z" placeholder="Ej: 60x + 80y">
+  </div>
 
-        <label for="restricciones">Restricciones (una por línea):</label>
-        <textarea id="restricciones" placeholder="Ej:
-2x + y ≤ 10
-x + 3y ≤ 15
-x ≥ 0
-y ≥ 0"></textarea>
+  <div class="box">
+    <label>Restricciones (una por línea):</label>
+    <textarea id="restricciones" rows="5" placeholder="Ej:
+4x + 2y <= 100
+2x + 3y <= 90
+x >= 0
+y >= 0"></textarea>
+  </div>
 
-        <div class="resultado">
-            <strong>🔒 Esta versión no resuelve todavía:</strong><br>
-            Aquí verás el resultado cuando se conecte a un sistema que calcule el método Simplex.
-        </div>
-    </form>
+  <button onclick="graficar()">📉 Graficar región</button>
+  <button onclick="resolverSimplex()">✅ Resolver con Simplex</button>
+
+  <div id="resultado" style="margin-top: 20px; font-weight: bold;"></div>
+  <div id="grafo"></div>
+
+  <script>
+    function parseExp(exp) {
+      const vars = {};
+      exp.replace(/([+-]?\s*\d*\.?\d*)\s*([a-z])/gi, (_, coef, variable) => {
+        coef = coef.replace(/\s/g, '') || '1';
+        if (coef === '+' || coef === '-') coef += '1';
+        vars[variable] = parseFloat(coef);
+      });
+      return vars;
+    }
+
+    function resolverSimplex() {
+      const tipo = document.getElementById("tipo").value;
+      const z = parseExp(document.getElementById("z").value);
+      const restricciones = document.getElementById("restricciones").value.trim().split("\n");
+
+      const constraints = {};
+      const variables = {};
+
+      restricciones.forEach((linea, i) => {
+        const partes = linea.match(/(.+)(<=|>=|=)(.+)/);
+        if (!partes) return;
+
+        const lhs = parseExp(partes[1]);
+        const signo = partes[2];
+        const valor = parseFloat(partes[3]);
+
+        Object.keys(lhs).forEach(v => {
+          if (!variables[v]) variables[v] = {};
+          variables[v][v] = 1;
+        });
+
+        const constraint = {};
+        Object.keys(lhs).forEach(v => constraint[v] = lhs[v]);
+
+        const clave = `r${i}`;
+        constraints[clave] = { ...constraint };
+
+        if (signo === "<=") constraints[clave].max = valor;
+        else if (signo === ">=") constraints[clave].min = valor;
+        else constraints[clave].equal = valor;
+      });
+
+      const model = {
+        optimize: "resultado",
+        opType: tipo,
+        constraints: constraints,
+        variables: {},
+      };
+
+      Object.keys(variables).forEach(v => {
+        model.variables[v] = { ...variables[v], resultado: z[v] || 0 };
+      });
+
+      const resultado = solver.Solve(model);
+      let resTexto = "";
+
+      if (resultado.feasible) {
+        resTexto = `💡 Solución óptima: Z = ${resultado.result.toFixed(2)}<br>`;
+        Object.keys(resultado).forEach(k => {
+          if (!["feasible", "result", "bounded"].includes(k)) {
+            resTexto += `${k} = ${resultado[k]}<br>`;
+          }
+        });
+      } else {
+        resTexto = "❌ No se encontró una solución factible.";
+      }
+
+      document.getElementById("resultado").innerHTML = resTexto;
+    }
+
+    function graficar() {
+      const restr = document.getElementById("restricciones").value.trim().split("\n");
+      const trazas = [];
+
+      restr.forEach(linea => {
+        const partes = linea.match(/(.+)(<=|>=|=)(.+)/);
+        if (!partes) return;
+
+        const lhs = parseExp(partes[1]);
+        const signo = partes[2];
+        const valor = parseFloat(partes[3]);
+
+        if (lhs.x && lhs.y) {
+          const x = [];
+          const y = [];
+
+          for (let xi = 0; xi <= 100; xi += 1) {
+            const yi = (valor - lhs.x * xi) / lhs.y;
+            if (yi >= 0 && yi <= 100) {
+              x.push(xi);
+              y.push(yi);
+            }
+          }
+
+          trazas.push({
+            x: x,
+            y: y,
+            mode: "lines",
+            name: linea,
+            line: { shape: "linear" }
+          });
+        }
+      });
+
+      Plotly.newPlot('grafo', trazas, {
+        title: "Región factible (aproximada)",
+        xaxis: { title: "x", range: [0, 100] },
+        yaxis: { title: "y", range: [0, 100] }
+      });
+    }
+  </script>
 
 </body>
 </html>
-
-
 
 
 
