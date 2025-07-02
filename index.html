@@ -32,19 +32,39 @@
   <div id="resultado"></div>
 
   <script>
-    /* -------------------------------------------------------------
-       UTILIDADES
-       -------------------------------------------------------------*/
-    // Extrae coeficientes a * x + b * y  de una expresión lineal (sin término independiente)
+    /* =============================================================
+       UTILIDADES DE PARSEO
+       =============================================================*/
+
+    /**
+     * Inserta el operador * donde math.js lo necesita (multiplicación explícita).
+     *  - 2y  -> 2*y
+     *  - -y  -> -1*y
+     *  - +y  -> +1*y
+     *  -  y  -> 1*y (si es el primer término)
+     */
+    function prepararParaMath(expr) {
+      let out = expr;
+      // 2y -> 2*y
+      out = out.replace(/([0-9])\s*([a-zA-Z])/g, '$1*$2');
+      // -y  -> -1*y , +y -> +1*y , inicio de línea "y" -> 1*y
+      out = out.replace(/(^|[+\-])\s*([a-zA-Z])/g, (m, signo, variable) => `${signo}1*${variable}`);
+      return out;
+    }
+
+    /**
+     * Extrae coeficientes a y b de "a x + b y" (sin término independiente).
+     * Acepta tanto "2y" como "2*y".
+     */
     function obtenerCoeficientes(expr) {
-      // Eliminamos espacios y reemplazamos "-y" por "-1y" para facilitar el parseo
-      const normalizada = expr.replace(/\s+/g, '')
-                              .replace(/(?<![0-9])-y/g, '-1y')
-                              .replace(/(?<![0-9])-x/g, '-1x')
-                              .replace(/\+y/g, '+1y')
-                              .replace(/\+x/g, '+1x');
-      const matchX = normalizada.match(/([+-]?[0-9]*\.?[0-9]*)x/);
-      const matchY = normalizada.match(/([+-]?[0-9]*\.?[0-9]*)y/);
+      // Eliminamos espacios y el * para hacer más sencillo el regex
+      const normalizada = expr.replace(/\s+/g, '').replace(/\*/g, '')
+                              .replace(/(?<![0-9])-y/gi, '-1y')
+                              .replace(/(?<![0-9])-x/gi, '-1x')
+                              .replace(/\+y/gi, '+1y')
+                              .replace(/\+x/gi, '+1x');
+      const matchX = normalizada.match(/([+-]?[0-9]*\.?[0-9]*)x/i);
+      const matchY = normalizada.match(/([+-]?[0-9]*\.?[0-9]*)y/i);
       const a = matchX ? parseFloat(matchX[1] || 1) : 0;
       const b = matchY ? parseFloat(matchY[1] || 1) : 0;
       return { a, b };
@@ -53,19 +73,19 @@
     function parseRestriccion(texto) {
       const match = texto.match(/(.+)(<=|>=|=)(.+)/);
       if (!match) return null;
+      const exprOriginal = match[1].trim();     // "x + 2y"
+      const exprEval     = prepararParaMath(exprOriginal); // "x+2*y"
       return {
-        expr: match[1].trim(),   // "x + 2y"
-        op: match[2].trim(),     // "<="
+        expr: exprOriginal,     // para coeficientes e intersecciones
+        exprEval: exprEval,     // para evaluar con math.js
+        op: match[2].trim(),
         rhs: parseFloat(match[3])
       };
     }
 
-    /**
-     *  Calcula la intersección entre dos rectas lineales de la forma
-     *      a1 x + b1 y = c1
-     *      a2 x + b2 y = c2
-     *  Devuelve {x, y} o null si son paralelas.
-     */
+    /* =============================================================
+       GEOMETRÍA: INTERSECCIÓN DE RECTAS
+       =============================================================*/
     function interseccion(r1, r2) {
       const { a: a1, b: b1 } = obtenerCoeficientes(r1.expr);
       const { a: a2, b: b2 } = obtenerCoeficientes(r2.expr);
@@ -80,9 +100,18 @@
       return { x, y };
     }
 
+    /* =============================================================
+       VERIFICAR SI UN PUNTO CUMPLE TODAS LAS RESTRICCIONES
+       =============================================================*/
     function cumpleRestricciones(punto, restricciones) {
       return restricciones.every(r => {
-        const val = math.evaluate(r.expr, punto);
+        let val;
+        try {
+          val = math.evaluate(r.exprEval, punto);
+        } catch (err) {
+          console.error('Error evaluando', r.exprEval, 'en', punto, err);
+          return false;
+        }
         if (r.op === '<=') return val <= r.rhs + 1e-6;
         if (r.op === '>=') return val >= r.rhs - 1e-6;
         if (r.op === '=')  return Math.abs(val - r.rhs) < 1e-6;
@@ -90,14 +119,14 @@
       });
     }
 
-    /* -------------------------------------------------------------
+    /* =============================================================
        FUNCIÓN PRINCIPAL
-       -------------------------------------------------------------*/
+       =============================================================*/
     function resolverPL() {
-      // --- Lectura de inputs
-      const maxInput = document.getElementById('maximo').value.trim();
-      const minInput = document.getElementById('minimo').value.trim();
-      const restriccionesInput = document.getElementById('restricciones').value.trim().split('\n');
+      // Lectura de inputs
+      const maxInputRaw = document.getElementById('maximo').value.trim();
+      const minInputRaw = document.getElementById('minimo').value.trim();
+      const restriccionesInput = document.getElementById('restricciones').value.trim().split('\n').filter(l => l.trim() !== '');
       const restricciones = restriccionesInput.map(parseRestriccion).filter(r => r);
 
       if (restricciones.length < 2) {
@@ -105,31 +134,27 @@
         return;
       }
 
-      // --- Obtenemos TODOS los puntos de intersección de cada par de restricciones
+      // Puntos de intersección factibles
       const puntos = [];
       for (let i = 0; i < restricciones.length; i++) {
         for (let j = i + 1; j < restricciones.length; j++) {
           const p = interseccion(restricciones[i], restricciones[j]);
-          if (p && isFinite(p.x) && isFinite(p.y)) {
-            if (cumpleRestricciones(p, restricciones)) {
-              puntos.push(p);
-            }
+          if (p && isFinite(p.x) && isFinite(p.y) && cumpleRestricciones(p, restricciones)) {
+            puntos.push(p);
           }
         }
       }
 
-      // Eliminamos duplicados (por si aparecen)
+      // Eliminar duplicados
       const llave = (pt) => `${pt.x.toFixed(6)},${pt.y.toFixed(6)}`;
-      const unicos = Object.values(
-        puntos.reduce((acc, pt) => {
-          acc[llave(pt)] = pt;
-          return acc;
-        }, {})
-      );
+      const unicos = Object.values(puntos.reduce((acc, pt) => {
+        acc[llave(pt)] = pt;
+        return acc;
+      }, {}));
 
-      // --- Preparamos funciones objetivo
-      const exprMax = maxInput ? math.parse(maxInput).compile() : null;
-      const exprMin = minInput ? math.parse(minInput).compile() : null;
+      // Preparamos funciones objetivo
+      const exprMax = maxInputRaw ? math.parse(prepararParaMath(maxInputRaw)).compile() : null;
+      const exprMin = minInputRaw ? math.parse(prepararParaMath(minInputRaw)).compile() : null;
 
       const filas = [];
       let maxZ = -Infinity, minZ = Infinity;
@@ -141,18 +166,12 @@
         if (exprMax) {
           const z = exprMax.evaluate(p);
           fila.max = z.toFixed(2);
-          if (z > maxZ) {
-            maxZ = z;
-            mejorMax = { ...p, z };
-          }
+          if (z > maxZ) { maxZ = z; mejorMax = { ...p, z }; }
         }
         if (exprMin) {
           const z = exprMin.evaluate(p);
           fila.min = z.toFixed(2);
-          if (z < minZ) {
-            minZ = z;
-            mejorMin = { ...p, z };
-          }
+          if (z < minZ) { minZ = z; mejorMin = { ...p, z }; }
         }
         filas.push(fila);
         coords.x.push(p.x);
@@ -160,7 +179,9 @@
         coords.text.push(`(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
       });
 
-      // --- Graficamos
+      /* ----------------------------------------------------------
+         GRÁFICA
+         ----------------------------------------------------------*/
       if (coords.x.length > 0) {
         Plotly.newPlot('grafico', [{
           x: coords.x,
@@ -175,7 +196,6 @@
           yaxis: { title: 'y', zeroline: true }
         });
       } else {
-        // Limpia grafico si no hay puntos
         Plotly.newPlot('grafico', [], {
           title: 'Región Factible',
           xaxis: { title: 'x', zeroline: true },
@@ -183,7 +203,9 @@
         });
       }
 
-      // --- Tabla de resultados
+      /* ----------------------------------------------------------
+         TABLA DE RESULTADOS
+         ----------------------------------------------------------*/
       let tablaHTML = '<table><tr><th>x</th><th>y</th>';
       if (exprMax) tablaHTML += '<th>Z máx</th>';
       if (exprMin) tablaHTML += '<th>Z mín</th>';
@@ -197,19 +219,13 @@
       tablaHTML += '</table>';
       document.getElementById('tabla').innerHTML = tablaHTML;
 
-      // --- Conclusiones
+      /* ----------------------------------------------------------
+         CONCLUSIÓN
+         ----------------------------------------------------------*/
       let conclusion = '';
       if (exprMax && mejorMax) {
-        conclusion += `<p><strong>Máximo:</strong> Z = ${mejorMax.z.toFixed(2)} en (x = ${mejorMax.x.toFixed(2)}, y = ${mejorMax.y.toFixed(2)})</p>`;
-      }
-      if (exprMin && mejorMin) {
-        conclusion += `<p><strong>Mínimo:</strong> Z = ${mejorMin.z.toFixed(2)} en (x = ${mejorMin.x.toFixed(2)}, y = ${mejorMin.y.toFixed(2)})</p>`;
-      }
-      document.getElementById('resultado').innerHTML = conclusion || '<p style="color:red;">No se encontraron soluciones factibles.</p>';
-    }
-  </script>
-</body>
-</html>
+        conclusion += `<p><strong>Máximo:</strong> Z = ${mejorMax.z.toFixed
+
 
 
 
