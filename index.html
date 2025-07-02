@@ -2,116 +2,153 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Programación Lineal</title>
+  <title>Programación Lineal Completa</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea, input { width: 300px; }
+    table { border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 5px 10px; }
+    #grafico { margin-top: 20px; }
+  </style>
 </head>
 <body>
   <h1>💡 Programación Lineal</h1>
 
   <label>Maximizar Z =</label>
-  <input id="objetivo" type="text" value="60x + 80y"><br><br>
+  <input id="maximo" type="text" placeholder="Ej: 60x + 80y"><br><br>
+
+  <label>Minimizar Z =</label>
+  <input id="minimo" type="text" placeholder="Ej: 40x + 30y"><br><br>
 
   <label>Sujeto a:</label><br>
-  <textarea id="restricciones" rows="5" cols="40">
-x + 2y <= 100
-2x + 3y <= 90
-x >= 0
-y >= 0
-  </textarea><br><br>
+  <textarea id="restricciones" rows="5" cols="40" placeholder="Ej: x + 2y <= 100\n2x + 3y <= 90\nx >= 0\ny >= 0"></textarea><br><br>
 
-  <button onclick="resolverPL()">Graficar</button>
+  <button onclick="resolverPL()">Graficar y Resolver</button>
 
   <div id="grafico" style="width:600px;height:400px;"></div>
+  <div id="tabla"></div>
   <div id="resultado"></div>
 
   <script>
-    function parseRestriccion(restr) {
-      const partes = restr.match(/([\d\w\s\+\-\*\/\.]+)(<=|>=|=)([\d\.-]+)/);
+    function parseRestriccion(texto) {
+      const match = texto.match(/(.+)(<=|>=|=)(.+)/);
+      if (!match) return null;
       return {
-        lhs: math.parse(partes[1].trim()),
-        op: partes[2],
-        rhs: parseFloat(partes[3])
+        expr: match[1].trim(),
+        op: match[2].trim(),
+        rhs: parseFloat(match[3])
       };
     }
 
-    function getVertices(restricciones) {
-      let vertices = [];
-      for (let i = 0; i < restricciones.length; i++) {
-        for (let j = i + 1; j < restricciones.length; j++) {
-          const r1 = restricciones[i];
-          const r2 = restricciones[j];
-          const ec1 = math.simplify(r1.lhs).toString().replace(/y/g, '*y').replace(/x/g, '*x');
-          const ec2 = math.simplify(r2.lhs).toString().replace(/y/g, '*y').replace(/x/g, '*x');
-          try {
-            const soluciones = math.lusolve(
-              [
-                [math.derivative(r1.lhs, 'x').evaluate(), math.derivative(r1.lhs, 'y').evaluate()],
-                [math.derivative(r2.lhs, 'x').evaluate(), math.derivative(r2.lhs, 'y').evaluate()]
-              ],
-              [r1.rhs, r2.rhs]
-            );
-            const x = soluciones[0][0], y = soluciones[1][0];
-            vertices.push({ x, y });
-          } catch (e) {
-            continue;
-          }
-        }
+    function interseccion(r1, r2) {
+      try {
+        const expr1 = math.parse(r1.expr);
+        const expr2 = math.parse(r2.expr);
+        const eq1 = math.simplify(`${r1.expr} = ${r1.rhs}`);
+        const eq2 = math.simplify(`${r2.expr} = ${r2.rhs}`);
+        const solutions = math.solve([eq1.toString(), eq2.toString()], ['x', 'y']);
+        return solutions;
+      } catch {
+        return null;
       }
-      return vertices;
     }
 
-    function cumpleRestricciones(p, restricciones) {
+    function cumpleRestricciones(punto, restricciones) {
       return restricciones.every(r => {
-        const valor = r.lhs.evaluate({ x: p.x, y: p.y });
-        switch (r.op) {
-          case '<=': return valor <= r.rhs + 1e-6;
-          case '>=': return valor >= r.rhs - 1e-6;
-          case '=': return Math.abs(valor - r.rhs) < 1e-6;
-        }
+        const val = math.evaluate(r.expr, punto);
+        if (r.op === '<=') return val <= r.rhs + 1e-6;
+        if (r.op === '>=') return val >= r.rhs - 1e-6;
+        if (r.op === '=') return Math.abs(val - r.rhs) < 1e-6;
+        return false;
       });
     }
 
     function resolverPL() {
-      const restrStr = document.getElementById('restricciones').value.trim().split('\n');
-      const restricciones = restrStr.map(parseRestriccion);
-      const vertices = getVertices(restricciones).filter(v => cumpleRestricciones(v, restricciones));
+      const maxInput = document.getElementById('maximo').value.trim();
+      const minInput = document.getElementById('minimo').value.trim();
+      const restriccionesInput = document.getElementById('restricciones').value.trim().split('\n');
+      const restricciones = restriccionesInput.map(parseRestriccion).filter(r => r);
 
-      const objStr = document.getElementById('objetivo').value;
-      const objExpr = math.parse(objStr);
-
-      let maxZ = -Infinity;
-      let puntoOptimo = null;
-      let puntos = { x: [], y: [], text: [] };
-
-      vertices.forEach(p => {
-        const z = objExpr.evaluate({ x: p.x, y: p.y });
-        puntos.x.push(p.x);
-        puntos.y.push(p.y);
-        puntos.text.push(`Z=${z.toFixed(2)}`);
-        if (z > maxZ) {
-          maxZ = z;
-          puntoOptimo = { ...p, z };
+      const puntos = [];
+      for (let i = 0; i < restricciones.length; i++) {
+        for (let j = i + 1; j < restricciones.length; j++) {
+          const p = interseccion(restricciones[i], restricciones[j]);
+          if (p && isFinite(p.x) && isFinite(p.y)) {
+            if (cumpleRestricciones(p, restricciones)) {
+              puntos.push(p);
+            }
+          }
         }
+      }
+
+      const exprMax = maxInput ? math.parse(maxInput).compile() : null;
+      const exprMin = minInput ? math.parse(minInput).compile() : null;
+
+      const filas = [];
+      let maxZ = -Infinity, minZ = Infinity;
+      let mejorMax = null, mejorMin = null;
+      const coords = { x: [], y: [], text: [] };
+
+      puntos.forEach(p => {
+        const fila = { x: p.x.toFixed(2), y: p.y.toFixed(2) };
+        if (exprMax) {
+          const z = exprMax.evaluate(p);
+          fila.max = z.toFixed(2);
+          if (z > maxZ) {
+            maxZ = z;
+            mejorMax = { ...p, z };
+          }
+        }
+        if (exprMin) {
+          const z = exprMin.evaluate(p);
+          fila.min = z.toFixed(2);
+          if (z < minZ) {
+            minZ = z;
+            mejorMin = { ...p, z };
+          }
+        }
+        filas.push(fila);
+        coords.x.push(p.x);
+        coords.y.push(p.y);
+        coords.text.push(`(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
       });
 
-      Plotly.newPlot('grafico', [
-        {
-          x: puntos.x,
-          y: puntos.y,
-          text: puntos.text,
-          mode: 'markers+text',
-          type: 'scatter',
-          textposition: 'top center'
-        }
-      ], {
-        title: 'Región Factible y Vértices',
+      Plotly.newPlot('grafico', [{
+        x: coords.x,
+        y: coords.y,
+        mode: 'markers+text',
+        text: coords.text,
+        textposition: 'top center',
+        marker: { size: 8 }
+      }], {
+        title: 'Región Factible',
         xaxis: { title: 'x' },
         yaxis: { title: 'y' }
       });
 
-      document.getElementById('resultado').innerHTML =
-        `<p><strong>Solución óptima:</strong> x = ${puntoOptimo.x.toFixed(2)}, y = ${puntoOptimo.y.toFixed(2)}, Z = ${puntoOptimo.z.toFixed(2)}</p>`;
+      let tablaHTML = '<table><tr><th>x</th><th>y</th>';
+      if (exprMax) tablaHTML += '<th>Z máx</th>';
+      if (exprMin) tablaHTML += '<th>Z mín</th>';
+      tablaHTML += '</tr>';
+      filas.forEach(f => {
+        tablaHTML += `<tr><td>${f.x}</td><td>${f.y}</td>`;
+        if (exprMax) tablaHTML += `<td>${f.max}</td>`;
+        if (exprMin) tablaHTML += `<td>${f.min}</td>`;
+        tablaHTML += '</tr>';
+      });
+      tablaHTML += '</table>';
+      document.getElementById('tabla').innerHTML = tablaHTML;
+
+      let conclusion = '';
+      if (exprMax && mejorMax) {
+        conclusion += `<p><strong>Máximo:</strong> Z = ${mejorMax.z.toFixed(2)} en (x = ${mejorMax.x.toFixed(2)}, y = ${mejorMax.y.toFixed(2)})</p>`;
+      }
+      if (exprMin && mejorMin) {
+        conclusion += `<p><strong>Mínimo:</strong> Z = ${mejorMin.z.toFixed(2)} en (x = ${mejorMin.x.toFixed(2)}, y = ${mejorMin.y.toFixed(2)})</p>`;
+      }
+      document.getElementById('resultado').innerHTML = conclusion || '<p style="color:red;">No se encontraron soluciones factibles.</p>';
     }
   </script>
 </body>
