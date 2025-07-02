@@ -2,142 +2,105 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Programación Lineal - Ejemplo</title>
+  <title>Programación Lineal Interactiva</title>
+  <script src="https://www.desmos.com/api/v1.6/calculator.js?apiKey=YOUR_API_KEY"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 30px;
-      line-height: 1.6;
-      background-color: #f7f9fb;
+      padding: 20px;
+      background-color: #eef3f7;
     }
-    h1, h2 {
-      color: #2c3e50;
-    }
-    code {
-      background-color: #e1e8ed;
-      padding: 2px 5px;
-      border-radius: 4px;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #aaa;
-      padding: 8px;
+    h1 {
       text-align: center;
     }
-    .section {
+    .formulario {
       background-color: #fff;
       padding: 20px;
-      margin-bottom: 30px;
       border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      box-shadow: 0 0 10px #ccc;
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0 15px;
+    }
+    button {
+      background-color: #2ecc71;
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #calculator {
+      width: 100%;
+      height: 500px;
+      border: 1px solid #aaa;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
 
-  <h1>Programación Lineal - Ejemplo Resuelto</h1>
+  <h1>🧮 Programación Lineal Interactiva</h1>
 
-  <div class="section">
-    <h2>✅ Sistema de Restricciones (S.A.)</h2>
-    <p>
-      Maximizar: <strong>Z = 60x + 80y</strong><br>
-      Sujeto a:<br>
-      <code>4x + 2y ≤ 100</code><br>
-      <code>2x + 3y ≤ 90</code><br>
-      <code>x ≥ 0, y ≥ 0</code>
-    </p>
+  <div class="formulario">
+    <label>Tipo de problema:</label>
+    <select id="tipo">
+      <option value="max">Maximizar</option>
+      <option value="min">Minimizar</option>
+    </select>
+
+    <label>Función Objetivo Z:</label>
+    <input type="text" id="objetivo" placeholder="Ejemplo: 60x + 80y">
+
+    <label>Restricciones (una por línea):</label>
+    <textarea id="restricciones" rows="5" placeholder="Ejemplo:&#10;4x + 2y <= 100&#10;2x + 3y <= 90&#10;x >= 0&#10;y >= 0"></textarea>
+
+    <button onclick="graficar()">Graficar Problema</button>
   </div>
 
-  <div class="section">
-    <h2>✅ Despejes paso a paso (en función de y)</h2>
-    <p>
-      <strong>1) 4x + 2y ≤ 100</strong><br>
-      → 2y ≤ 100 - 4x<br>
-      → y ≤ (100 - 4x)/2<br>
-      → <strong>y ≤ 50 - 2x</strong>
-    </p>
-    <p>
-      <strong>2) 2x + 3y ≤ 90</strong><br>
-      → 3y ≤ 90 - 2x<br>
-      → y ≤ (90 - 2x)/3<br>
-      → <strong>y ≤ 30 - (2/3)x</strong>
-    </p>
-  </div>
+  <div id="calculator"></div>
 
-  <div class="section">
-    <h2>✅ Intersección desarrollada (igualando las y)</h2>
-    <p>
-      Igualamos:<br>
-      <code>50 - 2x = 30 - (2/3)x</code><br>
-      Multiplicamos todo por 3:<br>
-      <code>150 - 6x = 90 - 2x</code><br>
-      → <code>60 = 4x</code> → <strong>x = 15</strong><br>
-      Sustituimos en y:<br>
-      <code>y = 50 - 2(15) = 20</code><br>
-      <strong>Intersección: (15, 20)</strong>
-    </p>
-  </div>
+  <script>
+    const elt = document.getElementById('calculator');
+    const calculator = Desmos.GraphingCalculator(elt, {
+      expressions: true,
+      expressionsTopbar: false,
+      settingsMenu: false
+    });
 
-  <div class="section">
-    <h2>✅ Tablas de valores para graficar</h2>
+    function graficar() {
+      calculator.setExpressions([]);
+      const tipo = document.getElementById("tipo").value;
+      const z = document.getElementById("objetivo").value;
+      const restr = document.getElementById("restricciones").value.split("\n");
 
-    <h3>1) y = 50 - 2x</h3>
-    <table>
-      <tr><th>x</th><th>y</th></tr>
-      <tr><td>0</td><td>50</td></tr>
-      <tr><td>10</td><td>30</td></tr>
-      <tr><td>20</td><td>10</td></tr>
-    </table>
+      // Mostrar restricciones
+      restr.forEach((r, i) => {
+        if (r.trim() !== "") {
+          calculator.setExpression({ id: 'r' + i, latex: r.replace(/=/g, "\\le") });
+        }
+      });
 
-    <h3>2) y = 30 - (2/3)x</h3>
-    <table>
-      <tr><th>x</th><th>y</th></tr>
-      <tr><td>0</td><td>30</td></tr>
-      <tr><td>15</td><td>20</td></tr>
-      <tr><td>30</td><td>10</td></tr>
-    </table>
-  </div>
-
-  <div class="section">
-    <h2>✅ Cuadro de vértices</h2>
-    <table>
-      <tr>
-        <th>Vértice (x, y)</th>
-        <th>Z = 60x + 80y</th>
-      </tr>
-      <tr>
-        <td>(0, 0)</td>
-        <td>0</td>
-      </tr>
-      <tr>
-        <td>(0, 30)</td>
-        <td>2400</td>
-      </tr>
-      <tr>
-        <td>(25, 0)</td>
-        <td>1500</td>
-      </tr>
-      <tr>
-        <td>(15, 20)</td>
-        <td><strong>3000</strong> ✅ Máximo</td>
-      </tr>
-    </table>
-  </div>
-
-  <div class="section">
-    <h2>✅ Conclusión</h2>
-    <p>
-      El valor máximo de Z = 60x + 80y se alcanza en el punto <strong>(15, 20)</strong>, y es <strong>Z = 3000</strong>. ✅<br>
-      Por lo tanto, la solución óptima es producir <strong>15 unidades de x</strong> y <strong>20 unidades de y</strong>.
-    </p>
-  </div>
+      // Mostrar función objetivo como línea punteada (Z constante)
+      calculator.setExpression({
+        id: 'z_linea',
+        latex: z.replace(/=/g, "") + "= c",
+        color: Desmos.Colors.BLUE,
+        lineStyle: Desmos.Styles.DASHED
+      });
+    }
+  </script>
 
 </body>
 </html>
+
 
 
 
