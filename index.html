@@ -2,101 +2,117 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Programación Lineal Interactiva</title>
+  <title>Programación Lineal Personalizada</title>
   <script src="https://www.desmos.com/api/v1.6/calculator.js?apiKey=YOUR_API_KEY"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #eef3f7;
+      padding: 30px;
+      background-color: #f2f7fb;
     }
     h1 {
       text-align: center;
+      color: #2c3e50;
     }
     .formulario {
-      background-color: #fff;
+      background: white;
       padding: 20px;
       border-radius: 10px;
-      box-shadow: 0 0 10px #ccc;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       margin-bottom: 20px;
     }
     label {
+      display: block;
+      margin-top: 15px;
       font-weight: bold;
     }
-    input, textarea {
+    input[type="text"], textarea {
       width: 100%;
-      padding: 8px;
-      margin: 5px 0 15px;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-family: monospace;
     }
     button {
-      background-color: #2ecc71;
-      border: none;
-      padding: 10px 20px;
+      margin-top: 20px;
+      padding: 12px 20px;
+      background-color: #2980b9;
       color: white;
+      border: none;
+      border-radius: 6px;
       font-weight: bold;
-      border-radius: 5px;
       cursor: pointer;
     }
     #calculator {
-      width: 100%;
       height: 500px;
-      border: 1px solid #aaa;
+      border: 1px solid #ccc;
       border-radius: 10px;
     }
   </style>
 </head>
 <body>
 
-  <h1>🧮 Programación Lineal Interactiva</h1>
+<h1>🧠 Programación Lineal - Tú escribes el problema</h1>
 
-  <div class="formulario">
-    <label>Tipo de problema:</label>
-    <select id="tipo">
-      <option value="max">Maximizar</option>
-      <option value="min">Minimizar</option>
-    </select>
+<div class="formulario">
+  <label for="max">Maximizar Z:</label>
+  <input type="text" id="max" placeholder="Ej: 60x + 80y">
 
-    <label>Función Objetivo Z:</label>
-    <input type="text" id="objetivo" placeholder="Ejemplo: 60x + 80y">
+  <label for="min">Minimizar Z:</label>
+  <input type="text" id="min" placeholder="Ej: 40x + 20y">
 
-    <label>Restricciones (una por línea):</label>
-    <textarea id="restricciones" rows="5" placeholder="Ejemplo:&#10;4x + 2y <= 100&#10;2x + 3y <= 90&#10;x >= 0&#10;y >= 0"></textarea>
+  <label for="restricciones">Sujeto a:</label>
+  <textarea id="restricciones" rows="5" placeholder="Ejemplo:&#10;4x + 2y ≤ 100&#10;2x + 3y ≤ 90&#10;x ≥ 0&#10;y ≥ 0"></textarea>
 
-    <button onclick="graficar()">Graficar Problema</button>
-  </div>
+  <button onclick="resolver()">Resolver</button>
+</div>
 
-  <div id="calculator"></div>
+<div id="calculator"></div>
 
-  <script>
-    const elt = document.getElementById('calculator');
-    const calculator = Desmos.GraphingCalculator(elt, {
-      expressions: true,
-      expressionsTopbar: false,
-      settingsMenu: false
+<script>
+  const elt = document.getElementById('calculator');
+  const calculator = Desmos.GraphingCalculator(elt, {
+    expressions: true,
+    expressionsTopbar: false,
+    settingsMenu: false,
+    keypad: false
+  });
+
+  function resolver() {
+    calculator.setExpressions([]);
+
+    const max = document.getElementById('max').value.trim();
+    const min = document.getElementById('min').value.trim();
+    const restricciones = document.getElementById('restricciones').value.trim().split('\n');
+
+    // Mostrar restricciones
+    restricciones.forEach((r, i) => {
+      if (r) {
+        calculator.setExpression({ id: 'r' + i, latex: r.replace(/≤/g, "\\le").replace(/≥/g, "\\ge") });
+      }
     });
 
-    function graficar() {
-      calculator.setExpressions([]);
-      const tipo = document.getElementById("tipo").value;
-      const z = document.getElementById("objetivo").value;
-      const restr = document.getElementById("restricciones").value.split("\n");
-
-      // Mostrar restricciones
-      restr.forEach((r, i) => {
-        if (r.trim() !== "") {
-          calculator.setExpression({ id: 'r' + i, latex: r.replace(/=/g, "\\le") });
-        }
-      });
-
-      // Mostrar función objetivo como línea punteada (Z constante)
+    // Mostrar función objetivo si está escrita
+    if (max !== "") {
       calculator.setExpression({
-        id: 'z_linea',
-        latex: z.replace(/=/g, "") + "= c",
+        id: 'max_linea',
+        latex: `Z=${max}`,
         color: Desmos.Colors.BLUE,
         lineStyle: Desmos.Styles.DASHED
       });
     }
-  </script>
+
+    if (min !== "") {
+      calculator.setExpression({
+        id: 'min_linea',
+        latex: `Z=${min}`,
+        color: Desmos.Colors.GREEN,
+        lineStyle: Desmos.Styles.DASHED
+      });
+    }
+  }
+</script>
 
 </body>
 </html>
