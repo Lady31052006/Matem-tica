@@ -23,7 +23,7 @@
   <input id="minimo" type="text" placeholder="Ej: 40x + 30y"><br><br>
 
   <label>Sujeto a:</label><br>
-  <textarea id="restricciones" rows="5" cols="40" placeholder="Ej: x + 2y <= 100\n2x + 3y <= 90\nx >= 0\ny >= 0"></textarea><br><br>
+  <textarea id="restricciones" rows="5" cols="40" placeholder="Ej:\nx + 2y <= 100\n2x + 3y <= 90\nx >= 0\ny >= 0"></textarea><br><br>
 
   <button onclick="resolverPL()">Graficar y Resolver</button>
 
@@ -44,11 +44,9 @@
 
     function interseccion(r1, r2) {
       try {
-        const expr1 = math.parse(r1.expr);
-        const expr2 = math.parse(r2.expr);
-        const eq1 = math.simplify(`${r1.expr} = ${r1.rhs}`);
-        const eq2 = math.simplify(`${r2.expr} = ${r2.rhs}`);
-        const solutions = math.solve([eq1.toString(), eq2.toString()], ['x', 'y']);
+        const eq1 = `${r1.expr} = ${r1.rhs}`;
+        const eq2 = `${r2.expr} = ${r2.rhs}`;
+        const solutions = math.solve([eq1, eq2], ['x', 'y']);
         return solutions;
       } catch {
         return null;
@@ -153,6 +151,7 @@
   </script>
 </body>
 </html>
+
 
 
 
