@@ -2,125 +2,139 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Graficador de Desigualdades con 3 Variables</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/13.0.0/math.min.js"></script>
+  <title>Programación Lineal - Ejemplo</title>
   <style>
     body {
-      background-color: #ffe6f0;
       font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 30px;
+      margin: 30px;
+      line-height: 1.6;
+      background-color: #f7f9fb;
     }
-    h2 {
-      color: #d63384;
-      margin-bottom: 20px;
+    h1, h2 {
+      color: #2c3e50;
     }
-    input[type="text"], input[type="number"] {
-      width: 60%;
-      padding: 10px;
-      margin: 10px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
+    code {
+      background-color: #e1e8ed;
+      padding: 2px 5px;
+      border-radius: 4px;
     }
-    button {
-      background-color: #f69ac0;
-      border: none;
-      color: black;
-      padding: 12px 30px;
-      font-size: 16px;
-      border-radius: 15px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    #grafico {
-      margin-top: 40px;
+    table {
+      border-collapse: collapse;
       width: 100%;
-      height: 600px;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 8px;
+      text-align: center;
+    }
+    .section {
+      background-color: #fff;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body>
 
-  <h2>Graficador de Desigualdades con 3 Variables</h2>
+  <h1>Programación Lineal - Ejemplo Resuelto</h1>
 
-  <input id="ineq1" type="text" placeholder="Ej: x + y + z <= 10" value="2*x + 3*y <= 7"><br>
-  <input id="ineq2" type="text" placeholder="Ej: x >= 0" value="x >= 1"><br>
-  <input id="ineq3" type="text" placeholder="Ej: y >= 0" value="y >= 0"><br>
+  <div class="section">
+    <h2>✅ Sistema de Restricciones (S.A.)</h2>
+    <p>
+      Maximizar: <strong>Z = 60x + 80y</strong><br>
+      Sujeto a:<br>
+      <code>4x + 2y ≤ 100</code><br>
+      <code>2x + 3y ≤ 90</code><br>
+      <code>x ≥ 0, y ≥ 0</code>
+    </p>
+  </div>
 
-  <label for="zval">Valor fijo para z: </label>
-  <input id="zval" type="number" value="0" step="0.5"><br>
+  <div class="section">
+    <h2>✅ Despejes paso a paso (en función de y)</h2>
+    <p>
+      <strong>1) 4x + 2y ≤ 100</strong><br>
+      → 2y ≤ 100 - 4x<br>
+      → y ≤ (100 - 4x)/2<br>
+      → <strong>y ≤ 50 - 2x</strong>
+    </p>
+    <p>
+      <strong>2) 2x + 3y ≤ 90</strong><br>
+      → 3y ≤ 90 - 2x<br>
+      → y ≤ (90 - 2x)/3<br>
+      → <strong>y ≤ 30 - (2/3)x</strong>
+    </p>
+  </div>
 
-  <button onclick="graficar()">Graficar</button>
+  <div class="section">
+    <h2>✅ Intersección desarrollada (igualando las y)</h2>
+    <p>
+      Igualamos:<br>
+      <code>50 - 2x = 30 - (2/3)x</code><br>
+      Multiplicamos todo por 3:<br>
+      <code>150 - 6x = 90 - 2x</code><br>
+      → <code>60 = 4x</code> → <strong>x = 15</strong><br>
+      Sustituimos en y:<br>
+      <code>y = 50 - 2(15) = 20</code><br>
+      <strong>Intersección: (15, 20)</strong>
+    </p>
+  </div>
 
-  <div id="grafico"></div>
+  <div class="section">
+    <h2>✅ Tablas de valores para graficar</h2>
 
-  <script>
-    function crearFuncion(inequation){
-      inequation = inequation.replace(/≤/g,"<=").replace(/≥/g,">=");
-      const opMatch = inequation.match(/(<=|>=|<|>)/);
-      if(!opMatch) throw "No se encontró operador en '"+inequation+"'";
-      const [op] = opMatch;
-      const [left, right] = inequation.split(op).map(t => t.trim());
-      const fLeft = math.compile(left);
-      const fRight = math.compile(right);
-      return (x,y,z) => {
-        const scope = {x,y,z};
-        const L = fLeft.evaluate(scope);
-        const R = fRight.evaluate(scope);
-        switch(op){
-          case "<=": return L <= R;
-          case ">=": return L >= R;
-          case "<" : return L <  R;
-          case ">" : return L >  R;
-        }
-      };
-    }
+    <h3>1) y = 50 - 2x</h3>
+    <table>
+      <tr><th>x</th><th>y</th></tr>
+      <tr><td>0</td><td>50</td></tr>
+      <tr><td>10</td><td>30</td></tr>
+      <tr><td>20</td><td>10</td></tr>
+    </table>
 
-    function graficar(){
-      const z = parseFloat(document.getElementById("zval").value);
-      const ineqs = [
-        document.getElementById("ineq1").value,
-        document.getElementById("ineq2").value,
-        document.getElementById("ineq3").value
-      ].map(crearFuncion);
+    <h3>2) y = 30 - (2/3)x</h3>
+    <table>
+      <tr><th>x</th><th>y</th></tr>
+      <tr><td>0</td><td>30</td></tr>
+      <tr><td>15</td><td>20</td></tr>
+      <tr><td>30</td><td>10</td></tr>
+    </table>
+  </div>
 
-      const XMIN=-10, XMAX=10, YMIN=-10, YMAX=10, PASO=0.25;
-      const xs=[], ys=[], Z=[];
-      for(let x=XMIN;x<=XMAX;x+=PASO) xs.push(x);
-      for(let y=YMIN;y<=YMAX;y+=PASO) ys.push(y);
+  <div class="section">
+    <h2>✅ Cuadro de vértices</h2>
+    <table>
+      <tr>
+        <th>Vértice (x, y)</th>
+        <th>Z = 60x + 80y</th>
+      </tr>
+      <tr>
+        <td>(0, 0)</td>
+        <td>0</td>
+      </tr>
+      <tr>
+        <td>(0, 30)</td>
+        <td>2400</td>
+      </tr>
+      <tr>
+        <td>(25, 0)</td>
+        <td>1500</td>
+      </tr>
+      <tr>
+        <td>(15, 20)</td>
+        <td><strong>3000</strong> ✅ Máximo</td>
+      </tr>
+    </table>
+  </div>
 
-      for(let i=0;i<ys.length;i++){
-        const fila = [];
-        for(let j=0;j<xs.length;j++){
-          const x = xs[j], y = ys[i];
-          const cumple = ineqs.every(fn => fn(x,y,z));
-          fila.push(cumple ? 1 : NaN);
-        }
-        Z.push(fila);
-      }
-
-      const data = [{
-        x: xs,
-        y: ys,
-        z: Z,
-        type: "heatmap",
-        colorscale: [[0, "rgba(0,0,0,0)"], [1, "rgba(255, 153, 204, 0.6)"]],
-        showscale: false,
-        hoverinfo: "x+y"
-      }];
-
-      const layout = {
-        title: `Región factible en el plano XY (z = ${z})`,
-        xaxis: { title: "x" },
-        yaxis: { title: "y", scaleanchor: "x" },
-        margin: { t: 50 }
-      };
-
-      Plotly.newPlot("grafico", data, layout, {responsive: true});
-    }
-  </script>
+  <div class="section">
+    <h2>✅ Conclusión</h2>
+    <p>
+      El valor máximo de Z = 60x + 80y se alcanza en el punto <strong>(15, 20)</strong>, y es <strong>Z = 3000</strong>. ✅<br>
+      Por lo tanto, la solución óptima es producir <strong>15 unidades de x</strong> y <strong>20 unidades de y</strong>.
+    </p>
+  </div>
 
 </body>
 </html>
