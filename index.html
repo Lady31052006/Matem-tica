@@ -2,119 +2,121 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Problema de Programación Lineal</title>
-  <script src="https://www.desmos.com/api/v1.6/calculator.js?apiKey=YOUR_API_KEY"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f7fa;
-      padding: 30px;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .formulario {
-      background-color: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 15px;
-    }
-    input, textarea {
-      width: 100%;
-      padding: 10px;
-      font-family: monospace;
-      margin-top: 5px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    button {
-      margin-top: 20px;
-      padding: 12px 20px;
-      font-weight: bold;
-      background-color: #3498db;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    #calculator {
-      height: 500px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-    }
-  </style>
+  <title>Programación Lineal</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.js"></script>
 </head>
 <body>
+  <h1>💡 Programación Lineal</h1>
 
-<h1>💡 Programación Lineal</h1>
+  <label>Maximizar Z =</label>
+  <input id="objetivo" type="text" value="60x + 80y"><br><br>
 
-<div class="formulario">
-  <label for="max">Maximizar Z =</label>
-  <input type="text" id="max" placeholder="Ejemplo: 60x + 80y">
+  <label>Sujeto a:</label><br>
+  <textarea id="restricciones" rows="5" cols="40">
+x + 2y <= 100
+2x + 3y <= 90
+x >= 0
+y >= 0
+  </textarea><br><br>
 
-  <label for="min">Minimizar Z =</label>
-  <input type="text" id="min" placeholder="Ejemplo: 40x + 30y">
+  <button onclick="resolverPL()">Graficar</button>
 
-  <label for="restricciones">Sujeto a:</label>
-  <textarea id="restricciones" rows="5" placeholder="Ejemplo:&#10;4x + 2y <= 100&#10;2x + 3y <= 90&#10;x >= 0&#10;y >= 0"></textarea>
+  <div id="grafico" style="width:600px;height:400px;"></div>
+  <div id="resultado"></div>
 
-  <button onclick="resolver()">Graficar</button>
-</div>
+  <script>
+    function parseRestriccion(restr) {
+      const partes = restr.match(/([\d\w\s\+\-\*\/\.]+)(<=|>=|=)([\d\.-]+)/);
+      return {
+        lhs: math.parse(partes[1].trim()),
+        op: partes[2],
+        rhs: parseFloat(partes[3])
+      };
+    }
 
-<div id="calculator"></div>
-
-<script>
-  const calculator = Desmos.GraphingCalculator(document.getElementById('calculator'), {
-    expressions: true,
-    settingsMenu: false,
-    expressionsTopbar: false
-  });
-
-  function resolver() {
-    calculator.setExpressions([]); // Limpia todo
-
-    const max = document.getElementById("max").value.trim();
-    const min = document.getElementById("min").value.trim();
-    const restricciones = document.getElementById("restricciones").value.trim().split('\n');
-
-    restricciones.forEach((r, i) => {
-      if (r) {
-        calculator.setExpression({
-          id: 'r' + i,
-          latex: r.replace(/≤/g, "\\le").replace(/≥/g, "\\ge")
-        });
+    function getVertices(restricciones) {
+      let vertices = [];
+      for (let i = 0; i < restricciones.length; i++) {
+        for (let j = i + 1; j < restricciones.length; j++) {
+          const r1 = restricciones[i];
+          const r2 = restricciones[j];
+          const ec1 = math.simplify(r1.lhs).toString().replace(/y/g, '*y').replace(/x/g, '*x');
+          const ec2 = math.simplify(r2.lhs).toString().replace(/y/g, '*y').replace(/x/g, '*x');
+          try {
+            const soluciones = math.lusolve(
+              [
+                [math.derivative(r1.lhs, 'x').evaluate(), math.derivative(r1.lhs, 'y').evaluate()],
+                [math.derivative(r2.lhs, 'x').evaluate(), math.derivative(r2.lhs, 'y').evaluate()]
+              ],
+              [r1.rhs, r2.rhs]
+            );
+            const x = soluciones[0][0], y = soluciones[1][0];
+            vertices.push({ x, y });
+          } catch (e) {
+            continue;
+          }
+        }
       }
-    });
+      return vertices;
+    }
 
-    if (max !== "") {
-      calculator.setExpression({
-        id: 'max',
-        latex: "Z=" + max,
-        color: Desmos.Colors.BLUE,
-        lineStyle: Desmos.Styles.DASHED
+    function cumpleRestricciones(p, restricciones) {
+      return restricciones.every(r => {
+        const valor = r.lhs.evaluate({ x: p.x, y: p.y });
+        switch (r.op) {
+          case '<=': return valor <= r.rhs + 1e-6;
+          case '>=': return valor >= r.rhs - 1e-6;
+          case '=': return Math.abs(valor - r.rhs) < 1e-6;
+        }
       });
     }
 
-    if (min !== "") {
-      calculator.setExpression({
-        id: 'min',
-        latex: "Z=" + min,
-        color: Desmos.Colors.GREEN,
-        lineStyle: Desmos.Styles.DASHED
-      });
-    }
-  }
-</script>
+    function resolverPL() {
+      const restrStr = document.getElementById('restricciones').value.trim().split('\n');
+      const restricciones = restrStr.map(parseRestriccion);
+      const vertices = getVertices(restricciones).filter(v => cumpleRestricciones(v, restricciones));
 
+      const objStr = document.getElementById('objetivo').value;
+      const objExpr = math.parse(objStr);
+
+      let maxZ = -Infinity;
+      let puntoOptimo = null;
+      let puntos = { x: [], y: [], text: [] };
+
+      vertices.forEach(p => {
+        const z = objExpr.evaluate({ x: p.x, y: p.y });
+        puntos.x.push(p.x);
+        puntos.y.push(p.y);
+        puntos.text.push(`Z=${z.toFixed(2)}`);
+        if (z > maxZ) {
+          maxZ = z;
+          puntoOptimo = { ...p, z };
+        }
+      });
+
+      Plotly.newPlot('grafico', [
+        {
+          x: puntos.x,
+          y: puntos.y,
+          text: puntos.text,
+          mode: 'markers+text',
+          type: 'scatter',
+          textposition: 'top center'
+        }
+      ], {
+        title: 'Región Factible y Vértices',
+        xaxis: { title: 'x' },
+        yaxis: { title: 'y' }
+      });
+
+      document.getElementById('resultado').innerHTML =
+        `<p><strong>Solución óptima:</strong> x = ${puntoOptimo.x.toFixed(2)}, y = ${puntoOptimo.y.toFixed(2)}, Z = ${puntoOptimo.z.toFixed(2)}</p>`;
+    }
+  </script>
 </body>
 </html>
+
 
 
 
