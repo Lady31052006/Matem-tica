@@ -1,166 +1,117 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Simplex con Gráfica</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/javascript-lp-solver/0.4.24/solver.min.js"></script>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    input, textarea, select, button {
-      margin: 5px 0; padding: 8px; width: 100%;
-    }
-    #grafo { width: 100%; height: 500px; }
-    .box { margin-bottom: 15px; }
-  </style>
-</head>
-<body>
+<script>
+  function parseExp(exp) {
+    const vars = {};
+    exp.replace(/([+-]?\s*\d*\.?\d*)\s*([a-zA-Z])/g, (_, coef, variable) => {
+      coef = coef.replace(/\s/g, '');
+      if (coef === '' || coef === '+') coef = '1';
+      else if (coef === '-') coef = '-1';
+      vars[variable] = parseFloat(coef);
+    });
+    return vars;
+  }
 
-  <h2>🔷 Método Simplex con Gráfica</h2>
+  function resolverSimplex() {
+    const tipo = document.getElementById("tipo").value;
+    const z = parseExp(document.getElementById("z").value);
+    const restricciones = document.getElementById("restricciones").value.trim().split("\n");
 
-  <div class="box">
-    <label>Tipo:</label>
-    <select id="tipo">
-      <option value="max">Maximizar</option>
-      <option value="min">Minimizar</option>
-    </select>
-  </div>
+    const constraints = {};
+    const variables = {};
 
-  <div class="box">
-    <label>Z =</label>
-    <input type="text" id="z" placeholder="Ej: 60x + 80y">
-  </div>
+    restricciones.forEach((linea, i) => {
+      const partes = linea.match(/(.+)(<=|>=|=)(.+)/);
+      if (!partes) return;
 
-  <div class="box">
-    <label>Restricciones (una por línea):</label>
-    <textarea id="restricciones" rows="5" placeholder="Ej:
-4x + 2y <= 100
-2x + 3y <= 90
-x >= 0
-y >= 0"></textarea>
-  </div>
+      const lhs = parseExp(partes[1]);
+      const signo = partes[2];
+      const valor = parseFloat(partes[3]);
 
-  <button onclick="graficar()">📉 Graficar región</button>
-  <button onclick="resolverSimplex()">✅ Resolver con Simplex</button>
-
-  <div id="resultado" style="margin-top: 20px; font-weight: bold;"></div>
-  <div id="grafo"></div>
-
-  <script>
-    function parseExp(exp) {
-      const vars = {};
-      exp.replace(/([+-]?\s*\d*\.?\d*)\s*([a-z])/gi, (_, coef, variable) => {
-        coef = coef.replace(/\s/g, '') || '1';
-        if (coef === '+' || coef === '-') coef += '1';
-        vars[variable] = parseFloat(coef);
-      });
-      return vars;
-    }
-
-    function resolverSimplex() {
-      const tipo = document.getElementById("tipo").value;
-      const z = parseExp(document.getElementById("z").value);
-      const restricciones = document.getElementById("restricciones").value.trim().split("\n");
-
-      const constraints = {};
-      const variables = {};
-
-      restricciones.forEach((linea, i) => {
-        const partes = linea.match(/(.+)(<=|>=|=)(.+)/);
-        if (!partes) return;
-
-        const lhs = parseExp(partes[1]);
-        const signo = partes[2];
-        const valor = parseFloat(partes[3]);
-
-        Object.keys(lhs).forEach(v => {
-          if (!variables[v]) variables[v] = {};
-          variables[v][v] = 1;
-        });
-
-        const constraint = {};
-        Object.keys(lhs).forEach(v => constraint[v] = lhs[v]);
-
-        const clave = `r${i}`;
-        constraints[clave] = { ...constraint };
-
-        if (signo === "<=") constraints[clave].max = valor;
-        else if (signo === ">=") constraints[clave].min = valor;
-        else constraints[clave].equal = valor;
+      const constraint = {};
+      Object.keys(lhs).forEach(v => {
+        constraint[v] = lhs[v];
+        if (!variables[v]) variables[v] = { [v]: 1 };  // base init
       });
 
-      const model = {
-        optimize: "resultado",
-        opType: tipo,
-        constraints: constraints,
-        variables: {},
-      };
+      const clave = `r${i}`;
+      if (signo === "<=") constraints[clave] = { ...constraint, max: valor };
+      else if (signo === ">=") constraints[clave] = { ...constraint, min: valor };
+      else constraints[clave] = { ...constraint, equal: valor };
+    });
 
-      Object.keys(variables).forEach(v => {
-        model.variables[v] = { ...variables[v], resultado: z[v] || 0 };
-      });
+    // Construir modelo con variables correctas
+    const model = {
+      optimize: "z",
+      opType: tipo,
+      constraints: constraints,
+      variables: {}
+    };
 
-      const resultado = solver.Solve(model);
-      let resTexto = "";
+    Object.keys(variables).forEach(v => {
+      model.variables[v] = { ...variables[v], z: z[v] || 0 };
+    });
 
-      if (resultado.feasible) {
-        resTexto = `💡 Solución óptima: Z = ${resultado.result.toFixed(2)}<br>`;
-        Object.keys(resultado).forEach(k => {
-          if (!["feasible", "result", "bounded"].includes(k)) {
-            resTexto += `${k} = ${resultado[k]}<br>`;
-          }
-        });
-      } else {
-        resTexto = "❌ No se encontró una solución factible.";
-      }
+    const resultado = solver.Solve(model);
+    let resTexto = "";
 
-      document.getElementById("resultado").innerHTML = resTexto;
-    }
-
-    function graficar() {
-      const restr = document.getElementById("restricciones").value.trim().split("\n");
-      const trazas = [];
-
-      restr.forEach(linea => {
-        const partes = linea.match(/(.+)(<=|>=|=)(.+)/);
-        if (!partes) return;
-
-        const lhs = parseExp(partes[1]);
-        const signo = partes[2];
-        const valor = parseFloat(partes[3]);
-
-        if (lhs.x && lhs.y) {
-          const x = [];
-          const y = [];
-
-          for (let xi = 0; xi <= 100; xi += 1) {
-            const yi = (valor - lhs.x * xi) / lhs.y;
-            if (yi >= 0 && yi <= 100) {
-              x.push(xi);
-              y.push(yi);
-            }
-          }
-
-          trazas.push({
-            x: x,
-            y: y,
-            mode: "lines",
-            name: linea,
-            line: { shape: "linear" }
-          });
+    if (resultado.feasible) {
+      resTexto += `🔍 Tipo: ${tipo === "max" ? "Maximización" : "Minimización"}<br>`;
+      resTexto += `💡 Valor óptimo Z = ${resultado.result.toFixed(2)}<br><br>`;
+      resTexto += `<table><tr><th>Variable</th><th>Valor</th></tr>`;
+      Object.keys(resultado).forEach(k => {
+        if (!["feasible", "result", "bounded"].includes(k)) {
+          resTexto += `<tr><td>${k}</td><td>${resultado[k]}</td></tr>`;
         }
       });
-
-      Plotly.newPlot('grafo', trazas, {
-        title: "Región factible (aproximada)",
-        xaxis: { title: "x", range: [0, 100] },
-        yaxis: { title: "y", range: [0, 100] }
-      });
+      resTexto += `</table>`;
+    } else {
+      resTexto = "❌ No se encontró una solución factible.";
     }
-  </script>
 
-</body>
-</html>
+    document.getElementById("resultado").innerHTML = resTexto;
+  }
+
+  function graficar() {
+    const restr = document.getElementById("restricciones").value.trim().split("\n");
+    const trazas = [];
+
+    restr.forEach(linea => {
+      const partes = linea.match(/(.+)(<=|>=|=)(.+)/);
+      if (!partes) return;
+
+      const lhs = parseExp(partes[1]);
+      const signo = partes[2];
+      const valor = parseFloat(partes[3]);
+
+      if (lhs.x && lhs.y) {
+        const x = [];
+        const y = [];
+
+        for (let xi = 0; xi <= 100; xi += 1) {
+          const yi = (valor - (lhs.x * xi)) / lhs.y;
+          if (yi >= 0 && yi <= 100) {
+            x.push(xi);
+            y.push(yi);
+          }
+        }
+
+        trazas.push({
+          x: x,
+          y: y,
+          mode: "lines",
+          name: linea,
+          line: { shape: "linear" }
+        });
+      }
+    });
+
+    Plotly.newPlot('grafo', trazas, {
+      title: "Región factible (aproximada)",
+      xaxis: { title: "x", range: [0, 100] },
+      yaxis: { title: "y", range: [0, 100] }
+    });
+  }
+</script>
+
 
 
 
