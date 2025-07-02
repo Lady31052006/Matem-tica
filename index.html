@@ -1,230 +1,70 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Programación Lineal Completa</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    textarea, input { width: 300px; }
-    table { border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 5px 10px; }
-    #grafico { margin-top: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Calculadora Simplex (solo HTML)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background-color: #f9fafb;
+        }
+        h2 {
+            color: #0f172a;
+        }
+        label {
+            margin-top: 10px;
+            display: block;
+            font-weight: bold;
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 4px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        textarea {
+            height: 100px;
+        }
+        .resultado {
+            margin-top: 20px;
+            background-color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+        }
+    </style>
 </head>
 <body>
-  <h1>💡 Programación Lineal</h1>
 
-  <label>Maximizar Z =</label>
-  <input id="maximo" type="text" placeholder="Ej: 60x + 80y"><br><br>
+    <h2>Formulario para Problemas Simplex</h2>
 
-  <label>Minimizar Z =</label>
-  <input id="minimo" type="text" placeholder="Ej: 40x + 30y"><br><br>
+    <form>
+        <label for="tipo">Tipo de optimización:</label>
+        <select id="tipo">
+            <option value="max">Máximo</option>
+            <option value="min">Mínimo</option>
+        </select>
 
-  <label>Sujeto a:</label><br>
-  <textarea id="restricciones" rows="5" cols="40" placeholder="Ej:\nx + 2y <= 100\n2x + 3y <= 90\nx >= 0\ny >= 0"></textarea><br><br>
+        <label for="objetivo">Función objetivo Z =</label>
+        <input type="text" id="objetivo" placeholder="Ej: 3x + 4y">
 
-  <button onclick="resolverPL()">Graficar y Resolver</button>
+        <label for="restricciones">Restricciones (una por línea):</label>
+        <textarea id="restricciones" placeholder="Ej:
+2x + y ≤ 10
+x + 3y ≤ 15
+x ≥ 0
+y ≥ 0"></textarea>
 
-  <div id="grafico" style="width:600px;height:400px;"></div>
-  <div id="tabla"></div>
-  <div id="resultado"></div>
+        <div class="resultado">
+            <strong>🔒 Esta versión no resuelve todavía:</strong><br>
+            Aquí verás el resultado cuando se conecte a un sistema que calcule el método Simplex.
+        </div>
+    </form>
 
-  <script>
-    /* =============================================================
-       UTILIDADES DE PARSEO
-       =============================================================*/
+</body>
+</html>
 
-    /**
-     * Inserta el operador * donde math.js lo necesita (multiplicación explícita).
-     *  - 2y  -> 2*y
-     *  - -y  -> -1*y
-     *  - +y  -> +1*y
-     *  -  y  -> 1*y (si es el primer término)
-     */
-    function prepararParaMath(expr) {
-      let out = expr;
-      // 2y -> 2*y
-      out = out.replace(/([0-9])\s*([a-zA-Z])/g, '$1*$2');
-      // -y  -> -1*y , +y -> +1*y , inicio de línea "y" -> 1*y
-      out = out.replace(/(^|[+\-])\s*([a-zA-Z])/g, (m, signo, variable) => `${signo}1*${variable}`);
-      return out;
-    }
-
-    /**
-     * Extrae coeficientes a y b de "a x + b y" (sin término independiente).
-     * Acepta tanto "2y" como "2*y".
-     */
-    function obtenerCoeficientes(expr) {
-      // Eliminamos espacios y el * para hacer más sencillo el regex
-      const normalizada = expr.replace(/\s+/g, '').replace(/\*/g, '')
-                              .replace(/(?<![0-9])-y/gi, '-1y')
-                              .replace(/(?<![0-9])-x/gi, '-1x')
-                              .replace(/\+y/gi, '+1y')
-                              .replace(/\+x/gi, '+1x');
-      const matchX = normalizada.match(/([+-]?[0-9]*\.?[0-9]*)x/i);
-      const matchY = normalizada.match(/([+-]?[0-9]*\.?[0-9]*)y/i);
-      const a = matchX ? parseFloat(matchX[1] || 1) : 0;
-      const b = matchY ? parseFloat(matchY[1] || 1) : 0;
-      return { a, b };
-    }
-
-    function parseRestriccion(texto) {
-      const match = texto.match(/(.+)(<=|>=|=)(.+)/);
-      if (!match) return null;
-      const exprOriginal = match[1].trim();     // "x + 2y"
-      const exprEval     = prepararParaMath(exprOriginal); // "x+2*y"
-      return {
-        expr: exprOriginal,     // para coeficientes e intersecciones
-        exprEval: exprEval,     // para evaluar con math.js
-        op: match[2].trim(),
-        rhs: parseFloat(match[3])
-      };
-    }
-
-    /* =============================================================
-       GEOMETRÍA: INTERSECCIÓN DE RECTAS
-       =============================================================*/
-    function interseccion(r1, r2) {
-      const { a: a1, b: b1 } = obtenerCoeficientes(r1.expr);
-      const { a: a2, b: b2 } = obtenerCoeficientes(r2.expr);
-      const c1 = r1.rhs;
-      const c2 = r2.rhs;
-
-      const det = a1 * b2 - a2 * b1;
-      if (Math.abs(det) < 1e-10) return null; // Paralelas o coincidentes
-
-      const x = (c1 * b2 - c2 * b1) / det;
-      const y = (a1 * c2 - a2 * c1) / det;
-      return { x, y };
-    }
-
-    /* =============================================================
-       VERIFICAR SI UN PUNTO CUMPLE TODAS LAS RESTRICCIONES
-       =============================================================*/
-    function cumpleRestricciones(punto, restricciones) {
-      return restricciones.every(r => {
-        let val;
-        try {
-          val = math.evaluate(r.exprEval, punto);
-        } catch (err) {
-          console.error('Error evaluando', r.exprEval, 'en', punto, err);
-          return false;
-        }
-        if (r.op === '<=') return val <= r.rhs + 1e-6;
-        if (r.op === '>=') return val >= r.rhs - 1e-6;
-        if (r.op === '=')  return Math.abs(val - r.rhs) < 1e-6;
-        return false;
-      });
-    }
-
-    /* =============================================================
-       FUNCIÓN PRINCIPAL
-       =============================================================*/
-    function resolverPL() {
-      // Lectura de inputs
-      const maxInputRaw = document.getElementById('maximo').value.trim();
-      const minInputRaw = document.getElementById('minimo').value.trim();
-      const restriccionesInput = document.getElementById('restricciones').value.trim().split('\n').filter(l => l.trim() !== '');
-      const restricciones = restriccionesInput.map(parseRestriccion).filter(r => r);
-
-      if (restricciones.length < 2) {
-        alert('Ingrese al menos dos restricciones correctamente formateadas.');
-        return;
-      }
-
-      // Puntos de intersección factibles
-      const puntos = [];
-      for (let i = 0; i < restricciones.length; i++) {
-        for (let j = i + 1; j < restricciones.length; j++) {
-          const p = interseccion(restricciones[i], restricciones[j]);
-          if (p && isFinite(p.x) && isFinite(p.y) && cumpleRestricciones(p, restricciones)) {
-            puntos.push(p);
-          }
-        }
-      }
-
-      // Eliminar duplicados
-      const llave = (pt) => `${pt.x.toFixed(6)},${pt.y.toFixed(6)}`;
-      const unicos = Object.values(puntos.reduce((acc, pt) => {
-        acc[llave(pt)] = pt;
-        return acc;
-      }, {}));
-
-      // Preparamos funciones objetivo
-      const exprMax = maxInputRaw ? math.parse(prepararParaMath(maxInputRaw)).compile() : null;
-      const exprMin = minInputRaw ? math.parse(prepararParaMath(minInputRaw)).compile() : null;
-
-      const filas = [];
-      let maxZ = -Infinity, minZ = Infinity;
-      let mejorMax = null, mejorMin = null;
-      const coords = { x: [], y: [], text: [] };
-
-      unicos.forEach(p => {
-        const fila = { x: p.x.toFixed(2), y: p.y.toFixed(2) };
-        if (exprMax) {
-          const z = exprMax.evaluate(p);
-          fila.max = z.toFixed(2);
-          if (z > maxZ) { maxZ = z; mejorMax = { ...p, z }; }
-        }
-        if (exprMin) {
-          const z = exprMin.evaluate(p);
-          fila.min = z.toFixed(2);
-          if (z < minZ) { minZ = z; mejorMin = { ...p, z }; }
-        }
-        filas.push(fila);
-        coords.x.push(p.x);
-        coords.y.push(p.y);
-        coords.text.push(`(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
-      });
-
-      /* ----------------------------------------------------------
-         GRÁFICA
-         ----------------------------------------------------------*/
-      if (coords.x.length > 0) {
-        Plotly.newPlot('grafico', [{
-          x: coords.x,
-          y: coords.y,
-          mode: 'markers+text',
-          text: coords.text,
-          textposition: 'top center',
-          marker: { size: 8 }
-        }], {
-          title: 'Región Factible',
-          xaxis: { title: 'x', zeroline: true },
-          yaxis: { title: 'y', zeroline: true }
-        });
-      } else {
-        Plotly.newPlot('grafico', [], {
-          title: 'Región Factible',
-          xaxis: { title: 'x', zeroline: true },
-          yaxis: { title: 'y', zeroline: true }
-        });
-      }
-
-      /* ----------------------------------------------------------
-         TABLA DE RESULTADOS
-         ----------------------------------------------------------*/
-      let tablaHTML = '<table><tr><th>x</th><th>y</th>';
-      if (exprMax) tablaHTML += '<th>Z máx</th>';
-      if (exprMin) tablaHTML += '<th>Z mín</th>';
-      tablaHTML += '</tr>';
-      filas.forEach(f => {
-        tablaHTML += `<tr><td>${f.x}</td><td>${f.y}</td>`;
-        if (exprMax) tablaHTML += `<td>${f.max}</td>`;
-        if (exprMin) tablaHTML += `<td>${f.min}</td>`;
-        tablaHTML += '</tr>';
-      });
-      tablaHTML += '</table>';
-      document.getElementById('tabla').innerHTML = tablaHTML;
-
-      /* ----------------------------------------------------------
-         CONCLUSIÓN
-         ----------------------------------------------------------*/
-      let conclusion = '';
-      if (exprMax && mejorMax) {
-        conclusion += `<p><strong>Máximo:</strong> Z = ${mejorMax.z.toFixed
 
 
 
