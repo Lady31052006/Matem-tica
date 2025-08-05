@@ -73,6 +73,51 @@ Z máx = ${optimo.z.toFixed(2)}
 
 📌 Restricciones activas:
 ${restricciones.map(r => {
+  const [lhs, op, rhs] = r.split(/(<=|>=|=)/);
+  const val = eval(lhs.replace(/U/g, `(${optimo.u})`).replace(/H/g, `(${optimo.h})`));
+  const activo = Math.abs(val - parseFloat(rhs)) < 1e-2 ? "✅ Activa" : "➖ No activa";
+  return `${r} → LHS=${val.toFixed(2)} → ${activo}`;
+}).join('\n')}
+      `.trim();
+
+      graficar(optimo, puntos);
+    }
+
+    function graficar(optimo, puntos) {
+      const canvas = document.getElementById("grafico");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const escalaX = 500 / 1200;
+      const escalaY = 300 / 2000;
+
+      // Ejes
+      ctx.beginPath();
+      ctx.moveTo(50, 350); ctx.lineTo(550, 350); // X
+      ctx.moveTo(50, 350); ctx.lineTo(50, 50);   // Y
+      ctx.stroke();
+
+      // Región factible
+      ctx.fillStyle = "rgba(0,0,255,0.2)";
+      puntos.forEach(p => {
+        const x = 50 + p.u * escalaX;
+        const y = 350 - p.h * escalaY;
+        ctx.fillRect(x, y, 1, 1);
+      });
+
+      // Punto óptimo
+      const x = 50 + optimo.u * escalaX;
+      const y = 350 - optimo.h * escalaY;
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = "black";
+      ctx.fillText(`Óptimo (${optimo.u}, ${optimo.h})`, x + 10, y - 10);
+    }
+  </script>
+</body>
+</html>
 
 
 
