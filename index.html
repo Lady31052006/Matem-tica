@@ -1,109 +1,148 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Resolver Programación Lineal</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Optimización de Inversiones - Simplex</title>
   <style>
-    body { font-family: Arial; background: #f5f5f5; padding: 20px; }
-    .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-    textarea, button { width: 100%; margin-top: 10px; padding: 10px; font-size: 16px; }
-    canvas { margin-top: 20px; border: 1px solid #ccc; width: 100%; height: 400px; }
-    pre { background: #eee; padding: 10px; white-space: pre-wrap; }
-    h1 { color: #007bff; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    canvas {
+      margin-top: 20px;
+      border: 1px solid #aaa;
+      width: 100%;
+      height: auto;
+    }
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    h1, h3 { color: #007bff; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔧 Resolver Problema de Programación Lineal</h1>
-    <p>✍️ Escribe el problema así (formato estructurado):</p>
-    <textarea id="entrada" rows="8" placeholder="Maximizar Z = 3U + 5H
-Sujeto a:
-25U + 50H <= 80000
-0.5U + 0.25H <= 700
-U <= 1000
-U, H >= 0"></textarea>
-    <button onclick="resolver()">Resolver</button>
-    <pre id="salida">Esperando datos...</pre>
+    <h1>Optimización de Portafolio con Programación Lineal</h1>
+    <p><strong>Función objetivo:</strong> Max Z = 3U + 5H</p>
+    <p><strong>Sujeto a restricciones:</strong></p>
+    <ul>
+      <li>25U + 50H ≤ 80000 (Presupuesto)</li>
+      <li>0.5U + 0.25H ≤ 700 (Riesgo)</li>
+      <li>U ≤ 1000 (Límite acciones U.S. Oil)</li>
+      <li>U, H ≥ 0</li>
+    </ul>
+
+    <button onclick="resolverSimplex()">Resolver</button>
     <canvas id="grafico" width="600" height="400"></canvas>
+    <div id="resultado"></div>
   </div>
 
   <script>
-    function parsearEntrada(texto) {
-      const lineas = texto.split('\n').map(l => l.trim()).filter(l => l);
-      const objetivo = lineas[0].match(/Z\s*=\s*([^\n]+)/i)[1];
-      const restricciones = lineas.slice(2, -1);
-      return { objetivo, restricciones };
-    }
+    function resolverSimplex() {
+      const restricciones = [
+        { nombre: "Presupuesto", coef: [25, 50], rhs: 80000 },
+        { nombre: "Riesgo", coef: [0.5, 0.25], rhs: 700 },
+        { nombre: "Límite US Oil", coef: [1, 0], rhs: 1000 }
+      ];
 
-    function evaluarObjetivo(obj, u, h) {
-      return eval(obj.replace(/U/g, `(${u})`).replace(/H/g, `(${h})`));
-    }
+      const objetivo = [3, 5]; // Z = 3U + 5H
 
-    function evaluarRestricciones(restricciones, u, h) {
-      return restricciones.every(r => {
-        const [lhs, op, rhs] = r.split(/(<=|>=|=)/);
-        const valLHS = eval(lhs.replace(/U/g, `(${u})`).replace(/H/g, `(${h})`));
-        const valRHS = parseFloat(rhs);
-        if (op === "<=") return valLHS <= valRHS;
-        if (op === ">=") return valLHS >= valRHS;
-        return valLHS === valRHS;
-      });
-    }
+      const vertices = [];
 
-    function resolver() {
-      const entrada = document.getElementById("entrada").value;
-      const { objetivo, restricciones } = parsearEntrada(entrada);
-
-      const puntos = [];
       for (let u = 0; u <= 1000; u += 1) {
-        for (let h = 0; h <= 2000; h += 1) {
-          if (evaluarRestricciones(restricciones, u, h)) {
-            const z = evaluarObjetivo(objetivo, u, h);
-            puntos.push({ u, h, z });
-          }
+        const h1 = (80000 - 25 * u) / 50;
+        const h2 = (700 - 0.5 * u) / 0.25;
+        const h = Math.min(h1, h2);
+        if (h >= 0) {
+          vertices.push({ u, h, z: 3 * u + 5 * h });
         }
       }
 
-      const optimo = puntos.reduce((a, b) => b.z > a.z ? b : a);
-      document.getElementById("salida").textContent = `
-✅ Solución óptima:
-U = ${optimo.u}
-H = ${optimo.h}
-Z máx = ${optimo.z.toFixed(2)}
+      const optimo = vertices.reduce((max, p) => p.z > max.z ? p : max, vertices[0]);
 
-📌 Restricciones activas:
-${restricciones.map(r => {
-  const [lhs, op, rhs] = r.split(/(<=|>=|=)/);
-  const val = eval(lhs.replace(/U/g, `(${optimo.u})`).replace(/H/g, `(${optimo.h})`));
-  const activo = Math.abs(val - parseFloat(rhs)) < 1e-2 ? "✅ Activa" : "➖ No activa";
-  return `${r} → LHS=${val.toFixed(2)} → ${activo}`;
-}).join('\n')}
-      `.trim();
+      document.getElementById("resultado").innerHTML = `
+        <h3>Resultados</h3>
+        <p><strong>Solución óptima:</strong> U = ${optimo.u.toFixed(0)}, H = ${optimo.h.toFixed(0)}</p>
+        <p><strong>Rendimiento máximo:</strong> $${optimo.z.toFixed(2)}</p>
+        <p><strong>Restricciones activas:</strong></p>
+        <ul>
+          ${restricciones.map(r => {
+            const lhs = r.coef[0] * optimo.u + r.coef[1] * optimo.h;
+            const activa = Math.abs(lhs - r.rhs) < 1 ? "✅ Activa" : "➖ No activa";
+            return `<li>${r.nombre}: ${lhs.toFixed(2)} / ${r.rhs} → ${activa}</li>`;
+          }).join("")}
+        </ul>
+        <p><strong>Interpretación:</strong><br/>
+          El portafolio debe invertir ${optimo.u.toFixed(0)} acciones en U.S. Oil y 
+          ${optimo.h.toFixed(0)} acciones en Huber Steel para maximizar el rendimiento 
+          a $${optimo.z.toFixed(2)}, sin exceder presupuesto, riesgo ni el límite de inversión en U.S. Oil.
+        </p>
+      `;
 
-      graficar(optimo, puntos);
+      graficar(optimo);
     }
 
-    function graficar(optimo, puntos) {
+    function graficar(optimo) {
       const canvas = document.getElementById("grafico");
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const escalaX = 500 / 1200;
-      const escalaY = 300 / 2000;
-
       // Ejes
       ctx.beginPath();
-      ctx.moveTo(50, 350); ctx.lineTo(550, 350); // X
-      ctx.moveTo(50, 350); ctx.lineTo(50, 50);   // Y
+      ctx.moveTo(50, 350); ctx.lineTo(550, 350); // Eje X
+      ctx.moveTo(50, 350); ctx.lineTo(50, 50);   // Eje Y
       ctx.stroke();
 
-      // Región factible
-      ctx.fillStyle = "rgba(0,0,255,0.2)";
-      puntos.forEach(p => {
-        const x = 50 + p.u * escalaX;
-        const y = 350 - p.h * escalaY;
-        ctx.fillRect(x, y, 1, 1);
-      });
+      // Escala
+      const escalaX = 500 / 1200; // Para U
+      const escalaY = 300 / 1800; // Para H
+
+      // Restricción Presupuesto: 25U + 50H <= 80000
+      ctx.beginPath();
+      ctx.strokeStyle = "#888";
+      for (let u = 0; u <= 1000; u += 10) {
+        const h = (80000 - 25 * u) / 50;
+        const x = 50 + u * escalaX;
+        const y = 350 - h * escalaY;
+        if (u === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Restricción Riesgo: 0.5U + 0.25H <= 700
+      ctx.beginPath();
+      for (let u = 0; u <= 1000; u += 10) {
+        const h = (700 - 0.5 * u) / 0.25;
+        const x = 50 + u * escalaX;
+        const y = 350 - h * escalaY;
+        if (u === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Restricción U <= 1000
+      const xMax = 50 + 1000 * escalaX;
+      ctx.beginPath();
+      ctx.moveTo(xMax, 350);
+      ctx.lineTo(xMax, 50);
+      ctx.stroke();
 
       // Punto óptimo
       const x = 50 + optimo.u * escalaX;
@@ -112,12 +151,16 @@ ${restricciones.map(r => {
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, 2 * Math.PI);
       ctx.fill();
+
+      // Etiqueta
       ctx.fillStyle = "black";
-      ctx.fillText(`Óptimo (${optimo.u}, ${optimo.h})`, x + 10, y - 10);
+      ctx.font = "14px Arial";
+      ctx.fillText(`Óptimo (${optimo.u.toFixed(0)}, ${optimo.h.toFixed(0)})`, x + 10, y - 10);
     }
   </script>
 </body>
 </html>
+
 
 
 
