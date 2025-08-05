@@ -1,77 +1,166 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Simplex - Inversión Óptima</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-        .tabla {
-            margin: 10px 0;
-        }
-        button {
-            padding: 8px 15px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Optimización de Inversiones - Simplex</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    canvas {
+      margin-top: 20px;
+      border: 1px solid #aaa;
+      width: 100%;
+      height: auto;
+    }
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    h1, h3 { color: #007bff; }
+  </style>
 </head>
 <body>
-    <h2>Optimización de Portafolio - Método Simplex</h2>
-    <p><strong>Problema:</strong> Maximizar el rendimiento anual de un portafolio con acciones de U.S. Oil y Huber Steel.</p>
+  <div class="container">
+    <h1>Optimización de Portafolio con Programación Lineal</h1>
+    <p><strong>Función objetivo:</strong> Max Z = 3U + 5H</p>
+    <p><strong>Sujeto a restricciones:</strong></p>
+    <ul>
+      <li>25U + 50H ≤ 80000 (Presupuesto)</li>
+      <li>0.5U + 0.25H ≤ 700 (Riesgo)</li>
+      <li>U ≤ 1000 (Límite acciones U.S. Oil)</li>
+      <li>U, H ≥ 0</li>
+    </ul>
 
-    <div class="tabla">
-        <p><strong>Función objetivo:</strong> Max Z = 3U + 5H</p>
-        <p><strong>Sujeto a:</strong></p>
-        <ul>
-            <li>25U + 50H ≤ 80000 &nbsp; (inversión máxima)</li>
-            <li>0.5U + 0.25H ≤ 700 &nbsp; (riesgo máximo)</li>
-            <li>U ≤ 1000 &nbsp; (máximo de acciones U.S. Oil)</li>
-            <li>U, H ≥ 0</li>
-        </ul>
-    </div>
-
-    <button onclick="resolver()">Resolver</button>
-
-    <h3>Resultado:</h3>
+    <button onclick="resolverSimplex()">Resolver</button>
+    <canvas id="grafico" width="600" height="400"></canvas>
     <div id="resultado"></div>
+  </div>
 
-    <script>
-        function resolver() {
-            let mejorU = 0, mejorH = 0, mejorZ = 0;
+  <script>
+    function resolverSimplex() {
+      const restricciones = [
+        { nombre: "Presupuesto", coef: [25, 50], rhs: 80000 },
+        { nombre: "Riesgo", coef: [0.5, 0.25], rhs: 700 },
+        { nombre: "Límite US Oil", coef: [1, 0], rhs: 1000 }
+      ];
 
-            for (let U = 0; U <= 1000; U++) {
-                for (let H = 0; H <= 2000; H++) {
-                    let inversion = 25 * U + 50 * H;
-                    let riesgo = 0.5 * U + 0.25 * H;
+      const objetivo = [3, 5]; // Z = 3U + 5H
 
-                    if (inversion <= 80000 && riesgo <= 700 && U <= 1000) {
-                        let Z = 3 * U + 5 * H;
-                        if (Z > mejorZ) {
-                            mejorZ = Z;
-                            mejorU = U;
-                            mejorH = H;
-                        }
-                    }
-                }
-            }
+      const vertices = [];
 
-            let result = `
-                <p><strong>Solución óptima:</strong></p>
-                <ul>
-                    <li>Acciones de U.S. Oil (U): <strong>${mejorU}</strong></li>
-                    <li>Acciones de Huber Steel (H): <strong>${mejorH}</strong></li>
-                    <li>Rendimiento total anual: <strong>$${mejorZ}</strong></li>
-                </ul>
-                <p><strong>Interpretación:</strong> Para maximizar el rendimiento, se deben comprar ${mejorU} acciones de U.S. Oil y ${mejorH} acciones de Huber Steel, cumpliendo todas las restricciones de inversión, riesgo y cantidad.</p>
-            `;
-            document.getElementById("resultado").innerHTML = result;
+      for (let u = 0; u <= 1000; u += 1) {
+        const h1 = (80000 - 25 * u) / 50;
+        const h2 = (700 - 0.5 * u) / 0.25;
+        const h = Math.min(h1, h2);
+        if (h >= 0) {
+          vertices.push({ u, h, z: 3 * u + 5 * h });
         }
-    </script>
+      }
+
+      const optimo = vertices.reduce((max, p) => p.z > max.z ? p : max, vertices[0]);
+
+      document.getElementById("resultado").innerHTML = `
+        <h3>Resultados</h3>
+        <p><strong>Solución óptima:</strong> U = ${optimo.u.toFixed(0)}, H = ${optimo.h.toFixed(0)}</p>
+        <p><strong>Rendimiento máximo:</strong> $${optimo.z.toFixed(2)}</p>
+        <p><strong>Restricciones activas:</strong></p>
+        <ul>
+          ${restricciones.map(r => {
+            const lhs = r.coef[0] * optimo.u + r.coef[1] * optimo.h;
+            const activa = Math.abs(lhs - r.rhs) < 1 ? "✅ Activa" : "➖ No activa";
+            return `<li>${r.nombre}: ${lhs.toFixed(2)} / ${r.rhs} → ${activa}</li>`;
+          }).join("")}
+        </ul>
+        <p><strong>Interpretación:</strong><br/>
+          El portafolio debe invertir ${optimo.u.toFixed(0)} acciones en U.S. Oil y 
+          ${optimo.h.toFixed(0)} acciones en Huber Steel para maximizar el rendimiento 
+          a $${optimo.z.toFixed(2)}, sin exceder presupuesto, riesgo ni el límite de inversión en U.S. Oil.
+        </p>
+      `;
+
+      graficar(optimo);
+    }
+
+    function graficar(optimo) {
+      const canvas = document.getElementById("grafico");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Ejes
+      ctx.beginPath();
+      ctx.moveTo(50, 350); ctx.lineTo(550, 350); // Eje X
+      ctx.moveTo(50, 350); ctx.lineTo(50, 50);   // Eje Y
+      ctx.stroke();
+
+      // Escala
+      const escalaX = 500 / 1200; // Para U
+      const escalaY = 300 / 1800; // Para H
+
+      // Restricción Presupuesto: 25U + 50H <= 80000
+      ctx.beginPath();
+      ctx.strokeStyle = "#888";
+      for (let u = 0; u <= 1000; u += 10) {
+        const h = (80000 - 25 * u) / 50;
+        const x = 50 + u * escalaX;
+        const y = 350 - h * escalaY;
+        if (u === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Restricción Riesgo: 0.5U + 0.25H <= 700
+      ctx.beginPath();
+      for (let u = 0; u <= 1000; u += 10) {
+        const h = (700 - 0.5 * u) / 0.25;
+        const x = 50 + u * escalaX;
+        const y = 350 - h * escalaY;
+        if (u === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Restricción U <= 1000
+      const xMax = 50 + 1000 * escalaX;
+      ctx.beginPath();
+      ctx.moveTo(xMax, 350);
+      ctx.lineTo(xMax, 50);
+      ctx.stroke();
+
+      // Punto óptimo
+      const x = 50 + optimo.u * escalaX;
+      const y = 350 - optimo.h * escalaY;
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Etiqueta
+      ctx.fillStyle = "black";
+      ctx.font = "14px Arial";
+      ctx.fillText(`Óptimo (${optimo.u.toFixed(0)}, ${optimo.h.toFixed(0)})`, x + 10, y - 10);
+    }
+  </script>
 </body>
 </html>
+
 
 
 
