@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Resolver Programación Lineal desde Enunciado</title>
+  <title>Resolver Problema de Programación Lineal</title>
   <style>
     body {
       font-family: Arial;
@@ -36,11 +36,12 @@
 <body>
   <div class="container">
     <h1>🔎 Resolver Problemas de Programación Lineal</h1>
-    <label>🔐 Tu API Key de OpenAI:</label>
+
+    <label>🔐 Tu API Key de OpenAI (no se guarda, solo se usa localmente):</label>
     <input id="apiKey" type="password" placeholder="sk-..." />
 
-    <label>📝 Pega aquí tu enunciado completo:</label>
-    <textarea id="enunciado" rows="10" placeholder="Ej: Investment Advisors Inc..."></textarea>
+    <label>📝 Escribe aquí el enunciado completo:</label>
+    <textarea id="enunciado" rows="10" placeholder="Pega aquí el ejercicio completo en lenguaje natural..."></textarea>
 
     <button onclick="resolver()">Resolver</button>
 
@@ -67,7 +68,7 @@ Eres un experto en investigación de operaciones. Te doy un enunciado de un prob
 5. Graficar si es posible
 6. Interpretar resultados claramente
 
-Da la solución paso a paso como si fuera un reporte.
+Da la solución paso a paso como si fuera un informe completo.
 `;
 
       const body = {
@@ -99,6 +100,7 @@ Da la solución paso a paso como si fuera un reporte.
   </script>
 </body>
 </html>
+
 
 
 
